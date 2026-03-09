@@ -584,19 +584,37 @@ participants.forEach(participant => {
 
 			/* === RESPONSIVE === */
 			@media (max-width: 768px) {
-				body { padding: 4px; }
+				html, body { height: auto; overflow: auto; }
+				body { padding: 8px 4px; align-items: flex-start; }
+				.window {
+					max-height: none;
+					max-width: 100%;
+				}
+				.content-wrapper { overflow: visible; }
+				.content { overflow: visible; }
+				.win95-scrollbar { display: none; }
+				.resize-handle { display: none; }
 				.controls-bar { flex-direction: column; }
 				.controls-bar .win-input,
 				.controls-bar .win-select,
 				.controls-bar .btn { width: 100%; }
+				.controls-bar .win-input[style] { width: 100% !important; }
 				.participant-form.show { flex-direction: column; }
 				.participant-form .win-input,
 				.participant-form .btn { width: 100%; }
 				.week-nav { flex-direction: column; gap: 6px; text-align: center; }
+				.week-label { font-size: 1.1rem; }
 				.shoutbox-form { flex-direction: column; }
 				.shoutbox-form .win-input,
 				.shoutbox-form .btn { width: 100%; }
+				.shoutbox-form .win-input[style] { width: 100% !important; }
 				.win-table th, .win-table td { padding: 3px 4px; font-size: 0.82rem; }
+				.win-table .date-cell { padding-left: 4px; font-size: 0.78rem; }
+				.status-bar { flex-direction: column; }
+				.status-field:first-child { flex: none; }
+				.title-bar span { font-size: 0.85rem; }
+				.group-box { padding: 8px; margin-bottom: 6px; }
+				.group-box legend { font-size: 0.85rem; }
 			}
 
 			/* scrollbar */
