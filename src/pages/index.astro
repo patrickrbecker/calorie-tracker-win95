@@ -602,7 +602,9 @@ participants.forEach(participant => {
 				.participant-form.show { flex-direction: column; }
 				.participant-form .win-input,
 				.participant-form .btn { width: 100%; }
-				.week-nav { flex-direction: column; gap: 6px; text-align: center; }
+				.week-nav { flex-wrap: wrap; justify-content: center; gap: 6px; text-align: center; }
+				.week-nav .btn { order: 0; }
+				.week-label { order: -1; width: 100%; }
 				.week-label { font-size: 1.1rem; }
 				.shoutbox-form { flex-direction: column; }
 				.shoutbox-form .win-input,
