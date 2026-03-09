@@ -9,19 +9,21 @@ let participantTotals = [];
 let currentWeekNumber = 1;
 let allWeeksData = {};
 
+// Check URL param for manual week navigation, otherwise use today's date
+const url = new URL(Astro.request.url);
+const weekParam = url.searchParams.get('week');
+
 try {
   participants = await getParticipants();
   participantTotals = await getParticipantTotals();
   allWeeksData = await getAllWeeksData();
 
-  // Use stored week from database (respects manual navigation)
-  currentWeekNumber = await getCurrentWeek();
+  currentWeekNumber = weekParam ? Math.min(Math.max(parseInt(weekParam) || 1, 1), 5) : getCurrentWeekByDate();
 
   weekData = await getWeekData(currentWeekNumber);
 } catch (error) {
   console.log('No existing data found, starting fresh');
-  // Even on error, set the week based on current date
-  currentWeekNumber = getCurrentWeekByDate();
+  currentWeekNumber = weekParam ? Math.min(Math.max(parseInt(weekParam) || 1, 1), 5) : getCurrentWeekByDate();
 }
 
 // Function to get current date in Eastern Time as YYYY-MM-DD string
@@ -1076,19 +1078,7 @@ participants.forEach(participant => {
 				if (newWeek < 1 || newWeek > 5) return;
 
 				try {
-					const response = await fetch('/api/change-week', {
-						method: 'POST',
-						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify({ week: newWeek })
-					});
-
-					const result = await response.json();
-
-					if (response.ok) {
-						window.location.reload();
-					} else {
-						alert('Error changing week: ' + (result.error || 'Unknown error'));
-					}
+					window.location.href = `/?week=${newWeek}`;
 				} catch (error) {
 					console.error('Error changing week:', error);
 					alert('Error changing week: ' + error.message);
@@ -1154,19 +1144,7 @@ participants.forEach(participant => {
 						const selectedWeek = getWeekForDate(selectedDate);
 
 						if (selectedWeek !== currentWeek) {
-							try {
-								const response = await fetch('/api/change-week', {
-									method: 'POST',
-									headers: { 'Content-Type': 'application/json' },
-									body: JSON.stringify({ week: selectedWeek })
-								});
-
-								if (response.ok) {
-									window.location.reload();
-								}
-							} catch (error) {
-								console.error('Error switching week:', error);
-							}
+							window.location.href = `/?week=${selectedWeek}`;
 						}
 					});
 				}
