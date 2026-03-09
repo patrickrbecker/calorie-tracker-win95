@@ -1,4 +1,4 @@
-import { addShoutboxMessage } from '../../lib/db.js';
+import { addShoutboxMessage, participantExists } from '../../lib/db.js';
 
 export async function POST({ request }) {
   try {
@@ -34,6 +34,15 @@ export async function POST({ request }) {
     if (trimmedMessage.length === 0) {
       return new Response(JSON.stringify({ error: 'Message cannot be empty' }), {
         status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Verify username is an existing participant (exact match)
+    const exists = await participantExists(trimmedUsername);
+    if (!exists) {
+      return new Response(JSON.stringify({ error: 'User not found!' }), {
+        status: 403,
         headers: { 'Content-Type': 'application/json' }
       });
     }
