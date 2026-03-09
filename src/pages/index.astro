@@ -588,7 +588,18 @@ participants.forEach(participant => {
 			/* === RESPONSIVE === */
 			@media (max-width: 768px) {
 				html, body { height: auto; overflow: auto; }
-				body { padding: 8px 4px; align-items: flex-start; }
+				body {
+					padding: 8px 4px;
+					align-items: flex-start;
+					background: #008080;
+				}
+				body::before {
+					content: '';
+					position: fixed;
+					top: 0; left: 0; right: 0; bottom: 0;
+					background: url("/bg.jpg") center center / cover no-repeat;
+					z-index: -1;
+				}
 				.window {
 					max-height: none;
 					max-width: 100%;
