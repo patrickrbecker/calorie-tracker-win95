@@ -591,14 +591,8 @@ participants.forEach(participant => {
 				body {
 					padding: 8px 4px;
 					align-items: flex-start;
-					background: #008080;
-				}
-				body::before {
-					content: '';
-					position: fixed;
-					top: 0; left: 0; right: 0; bottom: 0;
-					background: url("/bg.jpg") center center / cover no-repeat;
-					z-index: -1;
+					background: url("/bg.jpg") center top / cover no-repeat scroll #008080;
+					min-height: 100vh;
 				}
 				.window {
 					max-height: none;
