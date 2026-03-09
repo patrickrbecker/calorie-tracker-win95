@@ -764,6 +764,7 @@ participants.forEach(participant => {
 											<th>Participant</th>
 											<th>Total Calories</th>
 											<th>Pizza Slices Burned</th>
+											<th>Torta's Pounded</th>
 										</tr>
 									</thead>
 									<tbody id="overallTableBody">
@@ -779,6 +780,7 @@ participants.forEach(participant => {
 												else if (rank === 3) { rankClass = 'rank-bronze'; rankText = '#3'; }
 
 												const pizzaSlices = Math.floor(participant.total_calories / 300);
+												const tortasPounded = Math.floor(participant.total_calories / 85);
 
 												return (
 													<tr>
@@ -786,6 +788,7 @@ participants.forEach(participant => {
 														<td style="text-align:left; font-weight:700;">{participant.name}</td>
 														<td>{participant.total_calories.toLocaleString()}</td>
 														<td>{pizzaSlices.toLocaleString()}</td>
+														<td>{tortasPounded.toLocaleString()}</td>
 													</tr>
 												);
 											})}
