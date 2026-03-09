@@ -296,6 +296,9 @@ import Analytics from '@vercel/analytics/astro';
             const button = document.getElementById('clearButton');
             const status = document.getElementById('status');
 
+            const adminKey = prompt('Enter admin key:');
+            if (!adminKey) return;
+
             if (!confirm('Are you absolutely sure? This will delete ALL data and cannot be undone!')) {
                 return;
             }
@@ -307,7 +310,10 @@ import Analytics from '@vercel/analytics/astro';
             try {
                 const response = await fetch('/api/clear', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-admin-key': adminKey
+                    }
                 });
 
                 const result = await response.json();

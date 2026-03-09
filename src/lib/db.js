@@ -2,12 +2,11 @@ import { neon } from '@neondatabase/serverless';
 
 const sql = neon(process.env.DATABASE_URL);
 
-let _initialized = false;
+let _initPromise;
 
-async function ensureInit() {
-  if (_initialized) return;
-  await initDB();
-  _initialized = true;
+function ensureInit() {
+  if (!_initPromise) _initPromise = initDB();
+  return _initPromise;
 }
 
 export async function initDB() {
@@ -132,10 +131,12 @@ export async function setCurrentWeek(weekNumber) {
 
 export async function clearAllContestData() {
   await ensureInit();
-  await sql`DELETE FROM calories`;
-  await sql`DELETE FROM participants`;
-  await sql`DELETE FROM shoutbox`;
-  await sql`UPDATE settings SET value = '1' WHERE key = 'current_week'`;
+  await sql.transaction([
+    sql`DELETE FROM calories`,
+    sql`DELETE FROM participants`,
+    sql`DELETE FROM shoutbox`,
+    sql`UPDATE settings SET value = '1' WHERE key = 'current_week'`,
+  ]);
   return true;
 }
 
