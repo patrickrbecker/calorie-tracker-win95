@@ -21,9 +21,9 @@ export async function POST({ request }) {
       });
     }
 
-    // Security: Block script tags and other suspicious content
-    if (/<script|javascript:|on\w+\s*=|<iframe|<object|<embed/i.test(trimmedName)) {
-      return new Response(JSON.stringify({ error: 'Invalid characters in participant name' }), {
+    // Security: Allowlist — only letters, numbers, spaces, hyphens, apostrophes
+    if (!/^[a-zA-Z0-9 '\-]+$/.test(trimmedName)) {
+      return new Response(JSON.stringify({ error: 'Name can only contain letters, numbers, spaces, hyphens, and apostrophes' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       });

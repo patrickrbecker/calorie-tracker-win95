@@ -1,309 +1,140 @@
-import { Pool } from 'pg';
+// In-memory data store for local development (no Postgres needed)
+// Attached to globalThis so it survives Vite/Astro hot reloads.
 
-const pool = new Pool({
-  connectionString: process.env.POSTGRES_URL_NO_SSL,
-  ssl: {
-    rejectUnauthorized: false
-  }
-});
+if (!globalThis.__calorieStore) {
+  const today = new Date();
+  const day = today.getDate();
+  const initialWeek = Math.min(Math.ceil(day / 7), 5);
 
-// Initialize database tables
-export async function initDB() {
-  try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS participants (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(255) UNIQUE NOT NULL,
-        created_at TIMESTAMP DEFAULT NOW()
-      )
-    `);
-
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS calories (
-        id SERIAL PRIMARY KEY,
-        participant_name VARCHAR(255) NOT NULL,
-        date DATE NOT NULL,
-        calories INTEGER NOT NULL,
-        week_number INTEGER NOT NULL,
-        created_at TIMESTAMP DEFAULT NOW(),
-        FOREIGN KEY (participant_name) REFERENCES participants(name),
-        UNIQUE(participant_name, date)
-      )
-    `);
-
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS settings (
-        key VARCHAR(255) PRIMARY KEY,
-        value TEXT NOT NULL,
-        updated_at TIMESTAMP DEFAULT NOW()
-      )
-    `);
-
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS shoutbox_messages (
-        id SERIAL PRIMARY KEY,
-        username VARCHAR(255) NOT NULL,
-        message TEXT NOT NULL,
-        created_at TIMESTAMP DEFAULT NOW()
-      )
-    `);
-
-    // Initialize current week to 1 if it doesn't exist
-    await pool.query(`
-      INSERT INTO settings (key, value) VALUES ('current_week', '1')
-      ON CONFLICT (key) DO NOTHING
-    `);
-
-    console.log('Database tables initialized');
-  } catch (error) {
-    console.error('Database initialization error:', error);
-  }
+  globalThis.__calorieStore = {
+    participants: ['Pat'],
+    calories: [],
+    settings: { current_week: initialWeek.toString() },
+    shoutbox: [],
+    nextId: 1,
+    nextShoutId: 1,
+  };
 }
 
+const store = globalThis.__calorieStore;
+
+export async function initDB() {}
+
 export async function addParticipant(name) {
-  await initDB();
-  try {
-    const result = await pool.query(
-      'INSERT INTO participants (name) VALUES ($1) RETURNING *',
-      [name]
-    );
-    return result.rows[0];
-  } catch (error) {
-    if (error.code === '23505') { // Unique constraint violation
-      throw new Error('Participant already exists');
-    }
-    throw error;
+  if (store.participants.includes(name)) {
+    throw new Error('Participant already exists');
   }
+  store.participants.push(name);
+  store.participants.sort();
+  return { id: store.nextId++, name, created_at: new Date() };
 }
 
 export async function getParticipants() {
-  await initDB();
-  const result = await pool.query('SELECT name FROM participants ORDER BY name');
-  return result.rows.map(row => row.name);
+  return [...store.participants];
 }
 
 export async function addCalories(participantName, date, calories, weekNumber) {
-  await initDB();
-  try {
-    // Check if entry exists
-    const existing = await pool.query(
-      'SELECT calories FROM calories WHERE participant_name = $1 AND date = $2',
-      [participantName, date]
-    );
-
-    if (existing.rows.length > 0) {
-      // Add to existing calories
-      const newTotal = existing.rows[0].calories + calories;
-      const result = await pool.query(
-        'UPDATE calories SET calories = $1 WHERE participant_name = $2 AND date = $3 RETURNING *',
-        [newTotal, participantName, date]
-      );
-      return result.rows[0];
-    } else {
-      // Insert new entry
-      const result = await pool.query(
-        'INSERT INTO calories (participant_name, date, calories, week_number) VALUES ($1, $2, $3, $4) RETURNING *',
-        [participantName, date, calories, weekNumber]
-      );
-      return result.rows[0];
-    }
-  } catch (error) {
-    throw error;
+  const existing = store.calories.find(c => c.participant_name === participantName && c.date === date);
+  if (existing) {
+    existing.calories = calories;
+    return existing;
   }
+  const entry = { id: store.nextId++, participant_name: participantName, date, calories, week_number: weekNumber, created_at: new Date() };
+  store.calories.push(entry);
+  return entry;
 }
 
 export async function getWeekData(weekNumber) {
-  await initDB();
-  const result = await pool.query(
-    'SELECT * FROM calories WHERE week_number = $1',
-    [weekNumber]
-  );
-  
-  // Convert to the format expected by the frontend
   const weekData = {};
-  result.rows.forEach(row => {
-    const dateStr = row.date.toISOString().split('T')[0];
-    if (!weekData[dateStr]) {
-      weekData[dateStr] = {};
-    }
-    weekData[dateStr][row.participant_name] = row.calories;
-  });
-  
+  store.calories
+    .filter(c => c.week_number === weekNumber)
+    .forEach(row => {
+      if (!weekData[row.date]) weekData[row.date] = {};
+      weekData[row.date][row.participant_name] = row.calories;
+    });
   return weekData;
 }
 
 export async function participantExists(name) {
-  await initDB();
-  const result = await pool.query(
-    'SELECT 1 FROM participants WHERE name = $1',
-    [name]
-  );
-  return result.rows.length > 0;
+  return store.participants.includes(name);
 }
 
 export async function getParticipantTotals() {
-  await initDB();
-  const result = await pool.query(`
-    SELECT
-      p.name,
-      COALESCE(SUM(c.calories), 0) as total_calories
-    FROM participants p
-    LEFT JOIN calories c ON p.name = c.participant_name
-    GROUP BY p.name
-    ORDER BY total_calories DESC
-  `);
-  return result.rows;
+  return store.participants.map(name => {
+    const total = store.calories
+      .filter(c => c.participant_name === name)
+      .reduce((sum, c) => sum + c.calories, 0);
+    return { name, total_calories: total };
+  }).sort((a, b) => b.total_calories - a.total_calories);
 }
 
 export async function getCurrentWeek() {
-  await initDB();
-  const result = await pool.query(
-    'SELECT value FROM settings WHERE key = $1',
-    ['current_week']
-  );
-  return result.rows.length > 0 ? parseInt(result.rows[0].value) : 1;
+  return parseInt(store.settings.current_week) || 1;
 }
 
 export async function setCurrentWeek(weekNumber) {
-  await initDB();
   if (weekNumber >= 1 && weekNumber <= 5) {
-    await pool.query(
-      'UPDATE settings SET value = $1, updated_at = NOW() WHERE key = $2',
-      [weekNumber.toString(), 'current_week']
-    );
+    store.settings.current_week = weekNumber.toString();
     return true;
   }
   return false;
 }
 
 export async function clearAllContestData() {
-  await initDB();
-  try {
-    // Clear all calories data
-    await pool.query('DELETE FROM calories');
-
-    // Clear all participants
-    await pool.query('DELETE FROM participants');
-
-    // Reset current week to 1
-    await pool.query(
-      'UPDATE settings SET value = $1, updated_at = NOW() WHERE key = $2',
-      ['1', 'current_week']
-    );
-
-    console.log('All contest data cleared successfully');
-    return true;
-  } catch (error) {
-    console.error('Error clearing contest data:', error);
-    throw error;
-  }
+  store.participants.length = 0;
+  store.calories.length = 0;
+  store.settings.current_week = '1';
+  store.shoutbox.length = 0;
+  return true;
 }
 
 export async function updateCalories(participantName, date, calories, weekNumber) {
-  await initDB();
-  try {
-    // Get the previous value for rollback capability
-    const previousResult = await pool.query(
-      'SELECT calories FROM calories WHERE participant_name = $1 AND date = $2',
-      [participantName, date]
-    );
+  const existing = store.calories.find(c => c.participant_name === participantName && c.date === date);
+  const previousValue = existing ? existing.calories : null;
 
-    const previousValue = previousResult.rows.length > 0 ? previousResult.rows[0].calories : null;
-
-    // Update the calories (replace, don't add)
-    if (previousResult.rows.length > 0) {
-      // Update existing entry
-      const result = await pool.query(
-        'UPDATE calories SET calories = $1 WHERE participant_name = $2 AND date = $3 RETURNING *',
-        [calories, participantName, date]
-      );
-      return { success: true, previousValue, newValue: calories, updated: result.rows[0] };
-    } else {
-      // Create new entry (shouldn't happen in edit mode, but handle it)
-      const result = await pool.query(
-        'INSERT INTO calories (participant_name, date, calories, week_number) VALUES ($1, $2, $3, $4) RETURNING *',
-        [participantName, date, calories, weekNumber]
-      );
-      return { success: true, previousValue: null, newValue: calories, created: result.rows[0] };
-    }
-  } catch (error) {
-    console.error('Error updating calories:', error);
-    throw error;
+  if (existing) {
+    existing.calories = calories;
+    return { success: true, previousValue, newValue: calories, updated: existing };
   }
+  const entry = { id: store.nextId++, participant_name: participantName, date, calories, week_number: weekNumber, created_at: new Date() };
+  store.calories.push(entry);
+  return { success: true, previousValue: null, newValue: calories, created: entry };
 }
 
 export async function getAllWeeksData() {
-  await initDB();
-  const result = await pool.query(
-    'SELECT * FROM calories ORDER BY date, participant_name'
-  );
-
-  // Group by date and participant
   const allData = {};
-  result.rows.forEach(row => {
-    const dateStr = row.date.toISOString().split('T')[0];
-    if (!allData[dateStr]) {
-      allData[dateStr] = {};
-    }
-    allData[dateStr][row.participant_name] = row.calories;
-  });
-
+  store.calories
+    .sort((a, b) => a.date.localeCompare(b.date) || a.participant_name.localeCompare(b.participant_name))
+    .forEach(row => {
+      if (!allData[row.date]) allData[row.date] = {};
+      allData[row.date][row.participant_name] = row.calories;
+    });
   return allData;
 }
 
-// Shoutbox functions
 export async function addShoutboxMessage(username, message) {
-  await initDB();
-  try {
-    // Basic validation
-    if (!username || !message) {
-      throw new Error('Username and message are required');
-    }
+  if (!username || !message) throw new Error('Username and message are required');
+  if (message.length > 500) throw new Error('Message too long (max 500 characters)');
 
-    // Limit message length
-    if (message.length > 500) {
-      throw new Error('Message too long (max 500 characters)');
-    }
-
-    // Trim and sanitize input
-    const cleanUsername = username.trim().substring(0, 255);
-    const cleanMessage = message.trim();
-
-    const result = await pool.query(
-      'INSERT INTO shoutbox_messages (username, message) VALUES ($1, $2) RETURNING *',
-      [cleanUsername, cleanMessage]
-    );
-    return result.rows[0];
-  } catch (error) {
-    console.error('Error adding shoutbox message:', error);
-    throw error;
-  }
+  const entry = {
+    id: store.nextShoutId++,
+    username: username.trim().substring(0, 255),
+    message: message.trim(),
+    created_at: new Date().toISOString(),
+  };
+  store.shoutbox.push(entry);
+  return entry;
 }
 
 export async function getRecentShoutboxMessages(limit = 20) {
-  await initDB();
-  try {
-    const result = await pool.query(
-      'SELECT * FROM shoutbox_messages ORDER BY created_at DESC LIMIT $1',
-      [limit]
-    );
-    return result.rows.reverse(); // Show oldest first in display
-  } catch (error) {
-    console.error('Error getting shoutbox messages:', error);
-    throw error;
-  }
+  return store.shoutbox.slice(-limit);
 }
 
 export async function deleteShoutboxMessage(messageId) {
-  await initDB();
-  try {
-    const result = await pool.query(
-      'DELETE FROM shoutbox_messages WHERE id = $1 RETURNING *',
-      [messageId]
-    );
-    return result.rows[0];
-  } catch (error) {
-    console.error('Error deleting shoutbox message:', error);
-    throw error;
+  const idx = store.shoutbox.findIndex(m => m.id === messageId);
+  if (idx >= 0) {
+    const [removed] = store.shoutbox.splice(idx, 1);
+    return removed;
   }
+  return undefined;
 }

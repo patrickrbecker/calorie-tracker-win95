@@ -27,50 +27,32 @@ try {
 // Function to get current date in Eastern Time as YYYY-MM-DD string
 function getCurrentDateInEasternTime() {
   const now = new Date();
-  const easternTime = new Date(now.toLocaleString("en-US", {timeZone: "America/New_York"}));
-  return easternTime.toISOString().split('T')[0];
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+  return parts;
 }
 
-// Function to get current week based on Eastern Time
+// For local dev: weeks are Mon-Sun based on current month
 function getCurrentWeekByDate() {
-  // Get current date in Eastern Time (EDT/EST)
-  const currentDateStr = getCurrentDateInEasternTime();
-
-  // Define week date ranges
-  const weekRanges = {
-    1: { start: '2025-10-01', end: '2025-10-05' },
-    2: { start: '2025-10-06', end: '2025-10-12' },
-    3: { start: '2025-10-13', end: '2025-10-19' },
-    4: { start: '2025-10-20', end: '2025-10-26' },
-    5: { start: '2025-10-27', end: '2025-10-31' }
-  };
-
-  // Find which week we're currently in
-  for (let week = 1; week <= 5; week++) {
-    const range = weekRanges[week];
-    if (currentDateStr >= range.start && currentDateStr <= range.end) {
-      return week;
-    }
-  }
-
-  // If before October, show week 1; if after October, show week 5
-  if (currentDateStr < '2025-10-01') return 1;
-  if (currentDateStr > '2025-10-31') return 5;
-
-  return 1; // fallback
+  const now = new Date(getCurrentDateInEasternTime());
+  const day = now.getDate();
+  return Math.min(Math.ceil(day / 7), 5);
 }
 
-// Function to get the exact dates for each week in October 2025
+// Generate dates for a given week number in the current month
 function getWeekDates(weekNumber) {
-  const weekDates = {
-    1: ['2025-10-01', '2025-10-02', '2025-10-03', '2025-10-04', '2025-10-05'], // Wed-Sun
-    2: ['2025-10-06', '2025-10-07', '2025-10-08', '2025-10-09', '2025-10-10', '2025-10-11', '2025-10-12'], // Sun-Sat
-    3: ['2025-10-13', '2025-10-14', '2025-10-15', '2025-10-16', '2025-10-17', '2025-10-18', '2025-10-19'], // Sun-Sat
-    4: ['2025-10-20', '2025-10-21', '2025-10-22', '2025-10-23', '2025-10-24', '2025-10-25', '2025-10-26'], // Sun-Sat
-    5: ['2025-10-27', '2025-10-28', '2025-10-29', '2025-10-30', '2025-10-31'] // Sun-Thu
-  };
-
-  return weekDates[weekNumber] || weekDates[1];
+  const now = new Date(getCurrentDateInEasternTime());
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const startDay = (weekNumber - 1) * 7 + 1;
+  const endDay = Math.min(weekNumber * 7, daysInMonth);
+  const dates = [];
+  for (let d = startDay; d <= endDay; d++) {
+    const mm = String(month + 1).padStart(2, '0');
+    const dd = String(d).padStart(2, '0');
+    dates.push(`${year}-${mm}-${dd}`);
+  }
+  return dates;
 }
 
 // Generate days for current week using exact dates
@@ -78,7 +60,8 @@ const weekDays = [];
 const weekDateStrings = getWeekDates(currentWeekNumber);
 
 weekDateStrings.forEach(dateString => {
-  const date = new Date(dateString);
+  const [y, m, d] = dateString.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
   const dayInfo = {
     date: dateString,
     displayDate: date.toLocaleDateString('en-US', {
@@ -89,6 +72,15 @@ weekDateStrings.forEach(dateString => {
   };
   weekDays.push(dayInfo);
 });
+
+// Dynamic month label
+const now = new Date(getCurrentDateInEasternTime());
+const contestLabel = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+const daysInCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+
+// Set date picker to today if within displayed week, otherwise first day of displayed week
+const todayStr = getCurrentDateInEasternTime();
+const defaultDate = weekDateStrings.includes(todayStr) ? todayStr : weekDateStrings[0];
 
 // Calculate weekly totals for each participant
 const weeklyTotals = {};
@@ -107,9 +99,9 @@ participants.forEach(participant => {
 	<head>
 		<meta charset="utf-8" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<meta name="viewport" content="width=device-width" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 		<meta name="generator" content={Astro.generator} />
-		<title>Burning October 2025</title>
+		<title>Burning {contestLabel}</title>
 
 		<!-- Google tag (gtag.js) -->
 		<script async src="https://www.googletagmanager.com/gtag/js?id=G-4C0YRJ9CXX"></script>
@@ -117,627 +109,732 @@ participants.forEach(participant => {
 		  window.dataLayer = window.dataLayer || [];
 		  function gtag(){dataLayer.push(arguments);}
 		  gtag('js', new Date());
-
 		  gtag('config', 'G-4C0YRJ9CXX');
 		</script>
 
 		<Analytics />
 		<style>
+			/* === WIN95 FONT === */
+			@font-face {
+				font-family: 'W95';
+				src: url('https://unpkg.com/react95@4.0.0/dist/fonts/ms_sans_serif.woff2') format('woff2');
+				font-weight: 400;
+			}
+			@font-face {
+				font-family: 'W95';
+				src: url('https://unpkg.com/react95@4.0.0/dist/fonts/ms_sans_serif_bold.woff2') format('woff2');
+				font-weight: 700;
+			}
+
+			/* === RESET === */
+			* { margin: 0; padding: 0; box-sizing: border-box; }
+
+			:root {
+				--bg: #c6c6c6;
+				--dark: #0a0a0a;
+				--white: #fefefe;
+				--gray: #848584;
+				--light: #dfdfdf;
+				--title-bg: #060084;
+				--teal: #008080;
+				--page-bg: #0a0a3a;
+			}
+
+			html { font-size: 14px; }
+
+			html, body { height: 100%; overflow: hidden; margin: 0; }
+
 			body {
-				font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-				margin: 0;
-				padding: 20px;
-				background: #f8f9fa;
-				color: #333;
+				font-family: 'W95', 'Segoe UI', Tahoma, sans-serif;
+				background: url("/bg.jpg") center center / cover no-repeat fixed #008080;
+				color: var(--dark);
+				display: flex;
+				justify-content: center;
+				align-items: center;
+				padding: 16px 20px;
+				line-height: 1.4;
 			}
 
-			/* Mobile optimizations */
-			@media (max-width: 768px) {
-				body {
-					padding: 10px;
-				}
-
-				.container {
-					margin: 0;
-					border-radius: 0;
-				}
-
-				.header h1 {
-					font-size: 1.5em !important;
-				}
-
-				.week-header {
-					padding: 10px 15px !important;
-					font-size: 1em !important;
-				}
-
-				.week-nav {
-					padding: 10px 15px !important;
-					flex-direction: column;
-					gap: 10px;
-				}
-
-				.main-controls {
-					padding: 15px !important;
-					flex-direction: column;
-					gap: 10px;
-				}
-
-				.participant-form.show {
-					flex-direction: column !important;
-					align-items: stretch !important;
-				}
-
-				.excel-table {
-					font-size: 12px !important;
-				}
-
-				.excel-table th {
-					min-width: 80px !important;
-					padding: 8px 4px !important;
-					font-size: 11px !important;
-				}
-
-				.excel-table td {
-					padding: 6px 4px !important;
-					min-width: 80px !important;
-				}
-
-				.excel-table .date-cell {
-					min-width: 100px !important;
-					padding-left: 8px !important;
-				}
-
-				.excel-table input {
-					width: 60px !important;
-					font-size: 12px !important;
-				}
-
-				/* Chart mobile optimization */
-				#calorieChart {
-					max-width: 100% !important;
-					height: auto !important;
-				}
-
-				/* Mobile button styling */
-				.main-controls input,
-				.main-controls select {
-					width: 100% !important;
-				}
-
-				.main-controls button {
-					width: 100% !important;
-				}
-
-				.participant-form input {
-					width: 100% !important;
-				}
-
-				.participant-form button {
-					width: 100% !important;
-				}
+			/* === RAISED BORDER (outset) === */
+			.raised {
+				border: 2px solid;
+				border-color: var(--white) var(--dark) var(--dark) var(--white);
+				box-shadow: 1px 1px 0 0 var(--light) inset, -1px -1px 0 0 var(--gray) inset;
 			}
-			
-			.container {
-				max-width: 1200px;
-				margin: 0 auto;
-				background: white;
-				border-radius: 8px;
-				box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+
+			/* === SUNKEN BORDER (inset) === */
+			.sunken {
+				border: 2px solid;
+				border-color: var(--gray) var(--white) var(--white) var(--gray);
+				box-shadow: var(--dark) 1px 1px 0 0 inset, var(--light) -1px -1px 0 0 inset;
+			}
+
+			/* === WINDOW === */
+			.window {
+				background: var(--bg);
+				border: 2px solid;
+				border-color: var(--light) var(--dark) var(--dark) var(--light);
+				box-shadow:
+					1px 1px 0 1px var(--white) inset,
+					-1px -1px 0 1px var(--gray) inset,
+					rgba(0,0,0,0.35) 4px 4px 10px 0px;
+				width: 100%;
+				max-width: 900px;
+				display: flex;
+				flex-direction: column;
+				position: relative;
+				max-height: calc(100vh - 32px);
+				min-height: 0;
+			}
+
+			/* === TITLE BAR === */
+			.title-bar {
+				background: var(--title-bg);
+				color: var(--white);
+				font-weight: 700;
+				padding: 3px 4px;
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				user-select: none;
+			}
+			.title-bar span { padding-left: 2px; font-size: 1rem; }
+			.title-controls { display: flex; gap: 2px; }
+			.title-controls button {
+				width: 18px; height: 18px;
+				background: var(--bg);
+				border: 2px solid;
+				border-color: var(--white) var(--dark) var(--dark) var(--white);
+				box-shadow: 1px 1px 0 0 var(--light) inset, -1px -1px 0 0 var(--gray) inset;
+				font-family: 'W95', sans-serif;
+				font-size: 10px; font-weight: 700;
+				cursor: pointer;
+				display: flex; align-items: center; justify-content: center;
+				padding: 0;
+			}
+			.title-controls button:active {
+				border-color: var(--dark) var(--white) var(--white) var(--dark);
+				box-shadow: 1px 1px 0 0 var(--gray) inset;
+			}
+
+			/* === TOOLBAR === */
+			.toolbar {
+				display: flex;
+				align-items: center;
+				padding: 4px;
+				gap: 4px;
+				flex-wrap: wrap;
+			}
+
+			/* === BUTTONS === */
+			.btn {
+				font-family: 'W95', sans-serif;
+				font-size: 1rem;
+				background: var(--bg);
+				color: var(--dark);
+				border: 2px solid;
+				border-color: var(--white) var(--dark) var(--dark) var(--white);
+				box-shadow: 1px 1px 0 0 var(--light) inset, -1px -1px 0 0 var(--gray) inset;
+				padding: 3px 12px;
+				height: 28px;
+				cursor: pointer;
+				display: inline-flex;
+				align-items: center;
+				gap: 4px;
+				user-select: none;
+				white-space: nowrap;
+			}
+			.btn:active {
+				border-color: var(--dark) var(--white) var(--white) var(--dark);
+				box-shadow: 1px 1px 0 0 var(--gray) inset;
+				padding-top: 5px;
+			}
+			.btn:disabled {
+				color: var(--gray);
+				text-shadow: 1px 1px 0 var(--white);
+				cursor: default;
+			}
+			.btn:disabled:active {
+				border-color: var(--white) var(--dark) var(--dark) var(--white);
+				box-shadow: 1px 1px 0 0 var(--light) inset, -1px -1px 0 0 var(--gray) inset;
+				padding-top: 3px;
+			}
+			.btn.active-tab {
+				background: linear-gradient(45deg, var(--bg) 25%, transparent 25%, transparent 75%, var(--bg) 75%) 0 0 / 4px 4px,
+							linear-gradient(45deg, var(--bg) 25%, transparent 25%, transparent 75%, var(--bg) 75%) 2px 2px / 4px 4px var(--white);
+				border-color: var(--dark) var(--white) var(--white) var(--dark);
+				box-shadow: 1px 1px 0 0 var(--gray) inset;
+			}
+			.btn-fire {
+				background: #c6c6c6;
+				font-weight: 700;
+			}
+			.btn-add {
+				background: var(--bg);
+			}
+
+			/* === CONTENT AREA === */
+			.content-wrapper {
+				flex: 1;
+				min-height: 0;
+				display: flex;
 				overflow: hidden;
 			}
-			
-			.header {
-				background: #2c3e50;
-				color: white;
-				padding: 20px;
-				text-align: center;
+
+			.content {
+				padding: 8px;
+				overflow-y: auto;
+				overflow-x: hidden;
+				flex: 1;
+				min-height: 0;
+				scrollbar-width: none;
 			}
-			
-			.header h1 {
-				margin: 0;
-				font-size: 2em;
+			.content::-webkit-scrollbar { display: none; }
+
+			/* Win95 Custom Scrollbar */
+			.win95-scrollbar {
+				display: flex;
+				flex-direction: column;
+				width: 26px;
+				flex-shrink: 0;
 			}
-			
-			.week-header {
-				background: #34495e;
-				color: white;
-				padding: 15px 20px;
-				font-size: 1.2em;
-				font-weight: bold;
+			.scrollbar-btn {
+				background: var(--bg);
+				border: 2px solid;
+				border-color: var(--light) var(--dark) var(--dark) var(--light);
+				box-shadow: 1px 1px 0 0 var(--white) inset, -1px -1px 0 0 var(--gray) inset;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				width: 26px;
+				height: 26px;
+				flex-shrink: 0;
+				cursor: default;
+				user-select: none;
 			}
-			
-			
-			.excel-table {
+			.scrollbar-btn:active {
+				border-color: var(--dark) var(--light) var(--light) var(--dark);
+				box-shadow: 1px 1px 0 0 var(--gray) inset;
+			}
+			.scrollbar-track {
+				flex: 1;
+				position: relative;
+				background-image: url("data:image/svg+xml,%3Csvg width='4' height='4' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='2' height='2' fill='%23c6c6c6'/%3E%3Crect x='2' y='2' width='2' height='2' fill='%23c6c6c6'/%3E%3Crect x='2' width='2' height='2' fill='%23fefefe'/%3E%3Crect y='2' width='2' height='2' fill='%23fefefe'/%3E%3C/svg%3E");
+				background-size: 4px 4px;
+			}
+			.scrollbar-thumb {
+				position: absolute;
+				top: 0;
+				left: 0;
+				right: 0;
+				height: 30px;
+				background: var(--bg);
+				border: 2px solid;
+				border-color: var(--light) var(--dark) var(--dark) var(--light);
+				box-shadow: 1px 1px 0 0 var(--white) inset, -1px -1px 0 0 var(--gray) inset;
+				cursor: default;
+				touch-action: none;
+			}
+
+			/* === GROUP BOX (fieldset) === */
+			.group-box {
+				position: relative;
+				border: 2px solid var(--white);
+				padding: 12px;
+				margin-bottom: 8px;
+				box-shadow: var(--gray) -1px -1px 0 1px, var(--gray) -1px -1px 0 1px inset;
+			}
+			.group-box legend {
+				position: absolute;
+				top: 0; left: 8px;
+				transform: translateY(calc(-50% - 2px));
+				padding: 0 8px;
+				background: var(--bg);
+				font-weight: 700;
+			}
+			.group-box-content {
+				margin-top: 6px;
+			}
+
+			/* === INPUTS === */
+			.win-input, .win-select {
+				font-family: 'W95', sans-serif;
+				font-size: 1rem;
+				background: #fff;
+				color: var(--dark);
+				border: 2px solid;
+				border-color: var(--gray) var(--white) var(--white) var(--gray);
+				box-shadow: var(--dark) 1px 1px 0 0 inset, var(--light) -1px -1px 0 0 inset;
+				padding: 3px 6px;
+				height: 28px;
+			}
+			.win-input:focus, .win-select:focus {
+				outline: none;
+			}
+			.win-select {
+				cursor: pointer;
+			}
+
+			/* === TABLE === */
+			.table-scroll { overflow-x: auto; }
+			.win-table {
 				width: 100%;
 				border-collapse: collapse;
-				font-size: 14px;
+				font-size: 0.92rem;
+				background: #fff;
 			}
-
-			/* Mobile table wrapper for horizontal scrolling */
-			.table-wrapper {
-				overflow-x: auto;
-				-webkit-overflow-scrolling: touch;
-			}
-			
-			.excel-table th {
-				background: #34495e;
-				color: white;
-				padding: 12px 8px;
+			.win-table th {
+				background: var(--title-bg);
+				color: var(--white);
+				padding: 4px 8px;
 				text-align: center;
-				border: 1px solid #2c3e50;
-				font-weight: bold;
-				min-width: 120px;
+				border: 1px solid var(--dark);
+				font-weight: 700;
+				white-space: nowrap;
 			}
-			
-			.excel-table td {
-				padding: 10px 8px;
+			.win-table td {
+				padding: 4px 8px;
 				text-align: center;
-				border: 1px solid #bdc3c7;
-				background: white;
+				border: 1px solid var(--gray);
+				background: #fff;
 			}
-			
-			.excel-table .date-cell {
-				background: #ecf0f1;
-				font-weight: bold;
+			.win-table tr:hover td { background: #ffffcc; }
+			.win-table .date-cell {
+				background: var(--bg);
+				font-weight: 700;
 				text-align: left;
-				padding-left: 15px;
-				min-width: 140px;
+				padding-left: 10px;
+				white-space: nowrap;
 			}
-			
-			.excel-table .total-row {
-				background: #f1c40f;
-				font-weight: bold;
+			.win-table tr:hover .date-cell { background: #e8e8c8; }
+
+			/* Total row */
+			.total-row td {
+				background: #ffe100 !important;
+				font-weight: 700;
+				border-top: 2px solid var(--dark);
 			}
-			
-			.excel-table .total-row .date-cell {
-				background: #f39c12;
-				color: white;
-			}
-			
-			.excel-table input {
-				width: 80px;
-				padding: 4px;
-				border: 1px solid #bdc3c7;
-				border-radius: 3px;
-				text-align: center;
-			}
-			
-			.participant-cell {
-				position: relative;
-			}
-			
-			.participant-cell:hover {
-				background: #ecf0f1;
+			.total-row .date-cell {
+				background: #d4bf00 !important;
+				color: var(--dark);
 			}
 
-			/* Inline editing styles */
-			.editable-cell {
-				cursor: pointer;
-				position: relative;
-			}
+			/* Rank cells */
+			.rank-gold { background: #FFD700 !important; font-weight: 700; }
+			.rank-silver { background: #C0C0C0 !important; font-weight: 700; }
+			.rank-bronze { background: #CD7F32 !important; font-weight: 700; }
 
+			/* Editable cells */
+			.editable-cell { cursor: pointer; }
 			.editable-cell:hover {
-				background: #e8f4f8 !important;
-				border: 2px solid #3498db;
+				background: #d0e8ff !important;
+				outline: 2px solid var(--title-bg);
+				outline-offset: -2px;
 			}
-
 			.editable-cell.editing {
 				padding: 0;
-				background: #fff3cd;
+				background: #fff3cd !important;
 			}
-
 			.editable-cell .edit-input {
 				width: 100%;
-				padding: 8px;
-				border: 2px solid #007bff;
+				padding: 4px;
+				border: 2px solid var(--title-bg);
 				background: white;
 				text-align: center;
-				font-size: 14px;
+				font-family: 'W95', sans-serif;
+				font-size: 0.92rem;
 				box-sizing: border-box;
 			}
+			.editable-cell .edit-input:focus { outline: none; }
+			.editable-cell.saving { background: #d1ecf1 !important; }
+			.editable-cell.error { background: #f8d7da !important; }
 
-			.editable-cell .edit-input:focus {
-				outline: none;
-				border-color: #0056b3;
-			}
-
-			.editable-cell.saving {
-				background: #d1ecf1;
-			}
-
-			.editable-cell.error {
-				background: #f8d7da;
-				border-color: #dc3545;
-			}
-			
-			.empty-row {
-				height: 20px;
-			}
-			
-			.add-participant {
-				background: #27ae60 !important;
-			}
-			
-			.add-participant:hover {
-				background: #229954 !important;
-			}
-			
+			/* === WEEK NAV === */
 			.week-nav {
-				padding: 15px 20px;
-				background: #ecf0f1;
 				display: flex;
 				justify-content: space-between;
 				align-items: center;
+				padding: 2px 8px 6px;
+				background: var(--bg);
 			}
-			
-			.week-nav button {
-				padding: 8px 16px;
-				background: #95a5a6;
-				color: white;
-				border: none;
-				border-radius: 4px;
-				cursor: pointer;
-			}
-			
-			.week-nav button:hover {
-				background: #7f8c8d;
-			}
-			
-			/* Collapsible participant management */
-			.participant-management {
-				background: #f8f9fa;
-				border-bottom: 1px solid #e9ecef;
-			}
-			
+			.week-label { font-weight: 700; font-size: 1.4rem; }
+
+			/* === PARTICIPANT TOGGLE === */
 			.participant-toggle {
 				width: 100%;
-				padding: 15px 20px;
-				background: #e9ecef;
+				font-family: 'W95', sans-serif;
+				font-size: 1rem;
+				background: var(--bg);
 				border: none;
+				border-top: 1px solid var(--white);
+				border-bottom: 1px solid var(--gray);
+				padding: 4px 8px;
 				text-align: left;
 				cursor: pointer;
-				font-size: 14px;
-				font-weight: bold;
 				display: flex;
 				justify-content: space-between;
 				align-items: center;
-				color: #495057;
+				font-weight: 700;
 			}
-			
-			.participant-toggle:hover {
-				background: #dee2e6;
-			}
-			
-			.participant-toggle-icon {
-				transition: transform 0.2s ease;
-			}
-			
-			.participant-toggle.expanded .participant-toggle-icon {
-				transform: rotate(180deg);
-			}
-			
+			.participant-toggle:hover { background: var(--light); }
+			.toggle-arrow { transition: transform 0.15s; }
+			.participant-toggle.expanded .toggle-arrow { transform: rotate(180deg); }
+
 			.participant-form {
 				display: none;
-				padding: 20px;
-				background: #f8f9fa;
-				border-top: 1px solid #e9ecef;
-			}
-			
-			.participant-form.show {
-				display: flex;
-				gap: 15px;
+				padding: 8px;
+				gap: 8px;
 				align-items: center;
 				flex-wrap: wrap;
+				background: var(--bg);
+				border-bottom: 1px solid var(--gray);
 			}
-			
-			.main-controls {
-				padding: 20px;
-				background: #ecf0f1;
+			.participant-form.show { display: flex; }
+
+			/* === CONTROLS BAR === */
+			.controls-bar {
+				padding: 8px;
 				display: flex;
-				gap: 15px;
+				gap: 8px;
 				flex-wrap: wrap;
 				align-items: center;
-			}
-			
-			.main-controls input, .main-controls select, .main-controls button, .participant-form input, .participant-form button {
-				padding: 8px 12px;
-				border: 1px solid #bdc3c7;
-				border-radius: 4px;
-				font-size: 14px;
-			}
-			
-			.main-controls button, .participant-form button {
-				background: #3498db;
-				color: white;
-				border: none;
-				cursor: pointer;
-				font-weight: bold;
-			}
-			
-			.main-controls button:hover, .participant-form button:hover {
-				background: #2980b9;
+				background: var(--bg);
+				border-bottom: 1px solid var(--gray);
 			}
 
-			/* Shoutbox styles */
-			.shoutbox {
-				background: white;
-				border-radius: 8px;
-				box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-				margin-top: 20px;
-				overflow: hidden;
+			/* === SHOUTBOX === */
+			.shoutbox-window {
+				background: var(--bg);
+				border: 2px solid;
+				border-color: var(--light) var(--dark) var(--dark) var(--light);
+				box-shadow: 1px 1px 0 0 var(--white) inset, -1px -1px 0 0 var(--gray) inset;
+				margin-top: 8px;
 			}
-
-			.shoutbox-header {
-				background: #2c3e50;
-				color: white;
-				padding: 15px 20px;
-				font-size: 1.1em;
-				font-weight: bold;
+			.shoutbox-title {
+				background: var(--title-bg);
+				color: var(--white);
+				font-weight: 700;
+				padding: 3px 6px;
 			}
-
 			.shoutbox-messages {
-				max-height: 300px;
+				background: #fff;
+				border: 2px solid;
+				border-color: var(--gray) var(--white) var(--white) var(--gray);
+				box-shadow: var(--dark) 1px 1px 0 0 inset;
+				margin: 4px;
+				padding: 6px;
+				max-height: 250px;
 				overflow-y: auto;
-				padding: 10px;
-				background: #f8f9fa;
+				font-size: 0.9rem;
 			}
-
-			.shout-message {
-				background: white;
-				border-radius: 6px;
-				padding: 8px 12px;
-				margin-bottom: 8px;
-				border-left: 3px solid #3498db;
-				box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+			.shout-msg {
+				padding: 3px 0;
+				border-bottom: 1px dotted var(--gray);
 			}
-
-			.shout-username {
-				font-weight: bold;
-				color: #2c3e50;
-				font-size: 0.9em;
-			}
-
-			.shout-time {
-				color: #7f8c8d;
-				font-size: 0.8em;
-				float: right;
-			}
-
-			.shout-text {
-				color: #34495e;
-				margin-top: 4px;
-				word-wrap: break-word;
-			}
-
+			.shout-msg:last-child { border-bottom: none; }
+			.shout-user { font-weight: 700; color: var(--title-bg); }
+			.shout-time { color: var(--gray); font-size: 0.8rem; }
+			.shout-text { margin-left: 4px; }
 			.shoutbox-form {
-				padding: 15px 20px;
-				background: #ecf0f1;
-				border-top: 1px solid #bdc3c7;
 				display: flex;
-				gap: 10px;
+				gap: 4px;
+				padding: 4px;
 				align-items: center;
 			}
+			.shoutbox-form .win-input { flex: 1; }
 
-			.shoutbox-form input[type="text"] {
+			/* === STATUS BAR === */
+			.status-bar {
+				display: flex;
+				border-top: 2px solid var(--gray);
+				box-shadow: 0 -1px 0 0 var(--white);
+			}
+			.status-field {
+				border: 2px solid;
+				border-color: var(--gray) var(--white) var(--white) var(--gray);
+				padding: 2px 6px;
+				font-size: 0.85rem;
 				flex: 1;
-				padding: 8px 12px;
-				border: 1px solid #bdc3c7;
-				border-radius: 4px;
-				font-size: 14px;
+			}
+			.status-field:first-child { flex: 2; }
+
+			/* === CHART CONTAINER === */
+			.chart-container {
+				background: #fff;
+				border: 2px solid;
+				border-color: var(--gray) var(--white) var(--white) var(--gray);
+				box-shadow: var(--dark) 1px 1px 0 0 inset;
+				padding: 8px;
+				margin-top: 4px;
 			}
 
-			.shoutbox-form input[type="text"]:focus {
-				outline: none;
-				border-color: #3498db;
+			/* === RESIZE HANDLE === */
+			.resize-handle {
+				position: absolute;
+				bottom: 4px; right: 4px;
+				width: 18px; height: 18px;
+				background-image: linear-gradient(135deg,
+					var(--white) 16.67%, var(--bg) 16.67%, var(--bg) 33.33%,
+					var(--gray) 33.33%, var(--gray) 50%,
+					var(--white) 50%, var(--white) 66.67%, var(--bg) 66.67%, var(--bg) 83.33%,
+					var(--gray) 83.33%);
+				background-size: 8.49px 8.49px;
+				clip-path: polygon(100% 0, 0 100%, 100% 100%);
 			}
 
-			.shoutbox-form button {
-				background: #27ae60;
-				color: white;
-				border: none;
-				padding: 8px 16px;
-				border-radius: 4px;
-				cursor: pointer;
-				font-weight: bold;
-				font-size: 14px;
-			}
-
-			.shoutbox-form button:hover {
-				background: #229954;
-			}
-
-			.shoutbox-form button:disabled {
-				background: #95a5a6;
-				cursor: not-allowed;
-			}
-
+			/* === RESPONSIVE === */
 			@media (max-width: 768px) {
-				.shoutbox-form {
-					flex-direction: column;
-					gap: 8px;
-				}
+				body { padding: 4px; }
+				.controls-bar { flex-direction: column; }
+				.controls-bar .win-input,
+				.controls-bar .win-select,
+				.controls-bar .btn { width: 100%; }
+				.participant-form.show { flex-direction: column; }
+				.participant-form .win-input,
+				.participant-form .btn { width: 100%; }
+				.week-nav { flex-direction: column; gap: 6px; text-align: center; }
+				.shoutbox-form { flex-direction: column; }
+				.shoutbox-form .win-input,
+				.shoutbox-form .btn { width: 100%; }
+				.win-table th, .win-table td { padding: 3px 4px; font-size: 0.82rem; }
+			}
 
-				.shoutbox-form input[type="text"],
-				.shoutbox-form button {
-					width: 100%;
-				}
+			/* scrollbar */
+			.shoutbox-messages::-webkit-scrollbar { width: 18px; }
+			.shoutbox-messages::-webkit-scrollbar-track {
+				background: linear-gradient(45deg, var(--bg) 25%, transparent 25%, transparent 75%, var(--bg) 75%) 0 0 / 4px 4px,
+							linear-gradient(45deg, var(--bg) 25%, transparent 25%, transparent 75%, var(--bg) 75%) 2px 2px / 4px 4px var(--white);
+			}
+			.shoutbox-messages::-webkit-scrollbar-thumb {
+				background: var(--bg);
+				border: 2px solid;
+				border-color: var(--white) var(--dark) var(--dark) var(--white);
+				box-shadow: 1px 1px 0 0 var(--light) inset, -1px -1px 0 0 var(--gray) inset;
+			}
+			.btn-icon {
+				width: 16px;
+				height: 16px;
+				vertical-align: middle;
+				image-rendering: pixelated;
+			}
+			.copyright-link {
+				color: inherit;
+				text-decoration: none;
+				cursor: default;
+			}
+			.copyright-link:hover {
+				color: inherit;
+				text-decoration: none;
 			}
 		</style>
 	</head>
 	<body>
-		<div class="container">
-			<!-- Header -->
-			<div class="header">
-				<h1>🔥 Burning October 2025 🔥</h1>
-				<p>Active Calories Burned Daily Tracking</p>
+		<div class="window">
+			<!-- Title Bar -->
+			<div class="title-bar">
+				<span>Burning {contestLabel} - Calorie Tracker</span>
+				<div class="title-controls">
+					<button>_</button>
+					<button>&#9633;</button>
+					<button>X</button>
+				</div>
+			</div>
+
+			<!-- Toolbar -->
+			<div class="toolbar">
+				<button class="btn active-tab" onclick="window.location.href='/'">Tracker</button>
 			</div>
 
 			<!-- Week Navigation -->
 			<div class="week-nav">
-				<button id="prevWeek">← Previous Week</button>
-				<span><strong>October 2025 - Week {currentWeekNumber}</strong></span>
-				<button id="nextWeek">Next Week →</button>
+				<button class="btn" id="prevWeek">&lt; Prev Week <img src="/icons/calendar.png" alt="" class="btn-icon"></button>
+				<span class="week-label">{contestLabel} - Week {currentWeekNumber}</span>
+				<button class="btn" id="nextWeek"><img src="/icons/calendar.png" alt="" class="btn-icon"> Next Week &gt;</button>
 			</div>
 
-			<!-- Collapsible Participant Management -->
-			<div class="participant-management">
-				<button class="participant-toggle" type="button">
-					<span>👥 Manage Participants ({participants.length} active)</span>
-					<span class="participant-toggle-icon">▼</span>
-				</button>
-				<div class="participant-form" id="participantForm">
-					<input type="text" id="newParticipant" placeholder="Enter participant name">
-					<button type="button" class="add-participant" id="addParticipantBtn">Add Participant</button>
-					<small style="color: #6c757d; font-style: italic;">Name is case sensitive and cannot be changed</small>
-				</div>
+			<!-- Participant Management -->
+			<button class="participant-toggle" type="button">
+				<span>Manage Participants ({participants.length} active)</span>
+				<span class="toggle-arrow">&#9660;</span>
+			</button>
+			<div class="participant-form" id="participantForm">
+				<input type="text" class="win-input" id="newParticipant" placeholder="Participant name" style="flex:1; min-width:150px;">
+				<button type="button" class="btn btn-add" id="addParticipantBtn">Add Participant</button>
+				<small style="color: var(--gray);">Case sensitive, cannot be changed</small>
 			</div>
 
-			<!-- Main Calorie Tracking Controls -->
-			<div class="main-controls">
-				<input type="date" id="selectedDate" value={getCurrentDateInEasternTime()} min="2025-10-01" max="2025-10-31">
-				<select id="selectedParticipant">
+			<!-- Controls -->
+			<div class="controls-bar">
+				<input type="date" class="win-input" id="selectedDate" value={defaultDate}>
+				<select class="win-select" id="selectedParticipant">
 					<option value="">Select participant</option>
 					{participants.map(participant => (
 						<option value={participant}>{participant}</option>
 					))}
 				</select>
-				<input type="number" id="calorieAmount" placeholder="Calories burned" min="0">
-				<button type="button" id="addCaloriesBtn">🔥 Add Calories</button>
+				<input type="number" class="win-input" id="calorieAmount" placeholder="Calories" min="0" style="width:100px;">
+				<button type="button" class="btn btn-fire" id="addCaloriesBtn">Add Calories <img src="/icons/calc.png" alt="" class="btn-icon"></button>
 			</div>
 
-			<!-- Excel-style Table -->
-			<div class="table-wrapper">
-				<table class="excel-table">
-				<thead>
-					<tr>
-						<th>Date</th>
-						{participants.map(participant => (
-							<th>{participant}</th>
-						))}
-					</tr>
-				</thead>
-				<tbody>
-					{weekDays.map(day => (
-						<tr>
-							<td class="date-cell">{day.displayDate}</td>
-							{participants.map(participant => (
-								<td class="participant-cell editable-cell"
-									data-participant={participant}
-									data-date={day.date}
-									data-week={currentWeekNumber}
-									title="Click to edit">
-									<span class="calorie-value">{weekData[day.date]?.[participant] || ''}</span>
-								</td>
-							))}
-						</tr>
-					))}
-					
-					<!-- Weekly Total Row -->
-					<tr class="total-row">
-						<td class="date-cell">Weekly Total</td>
-						{participants.map(participant => (
-							<td>{weeklyTotals[participant] || 0}</td>
-						))}
-					</tr>
-					
-					<!-- Empty spacing rows -->
-					<tr class="empty-row"><td colspan={participants.length + 1}></td></tr>
-					<tr class="empty-row"><td colspan={participants.length + 1}></td></tr>
-				</tbody>
-			</table>
-			</div>
-
-			{participants.length === 0 && (
-				<div style="padding: 40px; text-align: center; color: #7f8c8d;">
-					<p><strong>No participants yet!</strong></p>
-					<p>Add your first participant above to start the contest.</p>
-				</div>
-			)}
-
-			<!-- Overall Calories Burned Table -->
-			{participants.length > 0 && (
-				<div style="padding: 20px; background: white; margin-top: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-					<h3 style="margin: 0 0 20px 0; text-align: center; color: #2c3e50;">🔥 Overall Calories Burned</h3>
-					<div class="table-wrapper">
-						<table class="excel-table" id="overallTable">
-						<thead>
-							<tr>
-								<th>Rank</th>
-								<th>Participant</th>
-								<th>Total Calories</th>
-								<th>Total Slices Burned 🍕</th>
-							</tr>
-						</thead>
-						<tbody id="overallTableBody">
-							{participantTotals
-								.sort((a, b) => b.total_calories - a.total_calories)
-								.map((participant, index) => {
-									const rank = index + 1;
-									let rankStyle = "text-align: center; font-weight: bold;";
-									let rankText = `#${rank}`;
-
-									if (rank === 1) {
-										rankStyle += " background: #FFD700; color: #000;"; // Gold
-										rankText = "🏆 #1";
-									} else if (rank === 2) {
-										rankStyle += " background: #C0C0C0; color: #000;"; // Silver
-										rankText = "🥈 #2";
-									} else if (rank === 3) {
-										rankStyle += " background: #CD7F32; color: #000;"; // Bronze
-										rankText = "🥉 #3";
-									}
-
-									const pizzaSlices = Math.floor(participant.total_calories / 300);
-
-									return (
+			<!-- Main Content -->
+			<div class="content-wrapper">
+			<div class="content" id="scrollContent">
+				<!-- Weekly Table -->
+				<fieldset class="group-box">
+					<legend>Week {currentWeekNumber} - Daily Tracking</legend>
+					<div class="group-box-content">
+						<div class="table-scroll">
+							<table class="win-table">
+								<thead>
+									<tr>
+										<th>Date</th>
+										{participants.map(participant => (
+											<th>{participant}</th>
+										))}
+									</tr>
+								</thead>
+								<tbody>
+									{weekDays.map(day => (
 										<tr>
-											<td style={rankStyle}>{rankText}</td>
-											<td style="text-align: left; font-weight: bold;">{participant.name}</td>
-											<td style="text-align: center;">{participant.total_calories.toLocaleString()}</td>
-											<td style="text-align: center;">{pizzaSlices.toLocaleString()}</td>
+											<td class="date-cell">{day.displayDate}</td>
+											{participants.map(participant => (
+												<td class="editable-cell"
+													data-participant={participant}
+													data-date={day.date}
+													data-week={currentWeekNumber}
+													title="Click to edit">
+													<span class="calorie-value">{weekData[day.date]?.[participant] || ''}</span>
+												</td>
+											))}
 										</tr>
-									);
-								})}
-						</tbody>
-					</table>
+									))}
+									<!-- Weekly Total Row -->
+									<tr class="total-row">
+										<td class="date-cell">WEEKLY TOTAL</td>
+										{participants.map(participant => (
+											<td>{weeklyTotals[participant] || 0}</td>
+										))}
+									</tr>
+								</tbody>
+							</table>
+						</div>
 					</div>
-				</div>
-			)}
+				</fieldset>
 
-			<!-- Chart Section -->
-			{participants.length > 0 && (
-				<div style="padding: 20px; background: white; margin-top: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-					<h3 style="margin: 0 0 20px 0; text-align: center; color: #2c3e50;">🏆 Cumulative Calorie Progress - October 2025</h3>
-					<canvas id="calorieChart" width="400" height="200"></canvas>
-				</div>
-			)}
+				{participants.length === 0 && (
+					<fieldset class="group-box">
+						<legend>Getting Started</legend>
+						<div class="group-box-content" style="text-align: center; padding: 20px;">
+							<p><strong>No participants yet!</strong></p>
+							<p>Add your first participant above to start the contest.</p>
+						</div>
+					</fieldset>
+				)}
 
-			<!-- Shoutbox Section -->
-			<div class="shoutbox">
-				<div class="shoutbox-header">
-					💬 Team Chat
-				</div>
-				<div class="shoutbox-messages" id="shoutboxMessages">
-					<div style="text-align: center; color: #7f8c8d; padding: 20px;">
-						Loading messages...
+				<!-- Overall Leaderboard -->
+				{participants.length > 0 && (
+					<fieldset class="group-box">
+						<legend>Overall Calories Burned</legend>
+						<div class="group-box-content">
+							<div class="table-scroll">
+								<table class="win-table" id="overallTable">
+									<thead>
+										<tr>
+											<th>Rank</th>
+											<th>Participant</th>
+											<th>Total Calories</th>
+											<th>Pizza Slices Burned</th>
+										</tr>
+									</thead>
+									<tbody id="overallTableBody">
+										{participantTotals
+											.sort((a, b) => b.total_calories - a.total_calories)
+											.map((participant, index) => {
+												const rank = index + 1;
+												let rankClass = '';
+												let rankText = `#${rank}`;
+
+												if (rank === 1) { rankClass = 'rank-gold'; rankText = '#1'; }
+												else if (rank === 2) { rankClass = 'rank-silver'; rankText = '#2'; }
+												else if (rank === 3) { rankClass = 'rank-bronze'; rankText = '#3'; }
+
+												const pizzaSlices = Math.floor(participant.total_calories / 300);
+
+												return (
+													<tr>
+														<td class={rankClass} style="text-align:center; font-weight:700;">{rankText}</td>
+														<td style="text-align:left; font-weight:700;">{participant.name}</td>
+														<td>{participant.total_calories.toLocaleString()}</td>
+														<td>{pizzaSlices.toLocaleString()}</td>
+													</tr>
+												);
+											})}
+									</tbody>
+								</table>
+							</div>
+						</div>
+					</fieldset>
+				)}
+
+				<!-- Chart -->
+				{participants.length > 0 && (
+					<fieldset class="group-box">
+						<legend>Cumulative Calorie Progress - {contestLabel}</legend>
+						<div class="group-box-content">
+							<div class="chart-container">
+								<canvas id="calorieChart" width="400" height="200"></canvas>
+							</div>
+						</div>
+					</fieldset>
+				)}
+
+				<!-- Shoutbox -->
+				<div class="shoutbox-window">
+					<div class="shoutbox-title">Team Chat</div>
+					<div class="shoutbox-messages" id="shoutboxMessages">
+						<div style="text-align: center; color: var(--gray); padding: 10px;">
+							Loading messages...
+						</div>
 					</div>
-				</div>
-				<div class="shoutbox-form">
-					<input type="text" id="shoutUsername" placeholder="Your name" maxlength="255">
-					<input type="text" id="shoutMessage" placeholder="Type your message..." maxlength="500">
-					<button type="button" id="sendShoutBtn">Send</button>
+					<div class="shoutbox-form">
+						<input type="text" class="win-input" id="shoutUsername" placeholder="Name" maxlength="255" style="width:120px; flex:none;">
+						<input type="text" class="win-input" id="shoutMessage" placeholder="Type a message..." maxlength="500">
+						<button type="button" class="btn" id="sendShoutBtn">Send</button>
+					</div>
 				</div>
 			</div>
+
+			<!-- Custom Win95 Scrollbar -->
+			<div class="win95-scrollbar" id="customScrollbar">
+				<div class="scrollbar-btn scrollbar-up" id="scrollUp">
+					<svg height="26" width="26" viewBox="0 0 26 26"><g transform="rotate(180 13 13)"><polygon fill="#0a0a0a" points="6,10 20,10 13,17"></polygon></g></svg>
+				</div>
+				<div class="scrollbar-track" id="scrollTrack">
+					<div class="scrollbar-thumb" id="scrollThumb"></div>
+				</div>
+				<div class="scrollbar-btn scrollbar-down" id="scrollDown">
+					<svg height="26" width="26" viewBox="0 0 26 26"><polygon fill="#0a0a0a" points="6,10 20,10 13,17"></polygon></svg>
+				</div>
+			</div>
+			</div>
+
+			<!-- Status Bar -->
+			<div class="status-bar">
+				<div class="status-field"><img src="/icons/info.png" alt="" class="btn-icon"> Burning {contestLabel} - Active Calorie Contest | <a href="/admin" class="copyright-link">&copy; Pat Becker</a></div>
+				<div class="status-field">Week {currentWeekNumber} of 5</div>
+				<div class="status-field">{participants.length} participants</div>
+			</div>
+
+			<div class="resize-handle"></div>
 		</div>
 
 		<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-		<script define:vars={{ currentWeek: currentWeekNumber, chartData: participantTotals, weekData: weekData, participants: participants, weekDays: weekDays, allWeeksData: allWeeksData }}>
+		<script define:vars={{ currentWeek: currentWeekNumber, chartData: participantTotals, weekData: weekData, participants: participants, weekDays: weekDays, allWeeksData: allWeeksData, daysInMonth: daysInCurrentMonth }}>
 			// currentWeek is now available from define:vars
 
 			// Initialize chart if we have data
 			let calorieChart = null;
-			
+
 			function initChart() {
 				const canvas = document.getElementById('calorieChart');
 				if (!canvas || !participants || participants.length === 0) return;
@@ -749,30 +846,29 @@ participants.forEach(participant => {
 					calorieChart.destroy();
 				}
 
-				// Generate October 2025 dates up to today
+				// Generate dates for current month up to today
 				const today = new Date();
-				const currentDay = today.getMonth() === 9 && today.getFullYear() === 2025 ? today.getDate() : 31;
-				const maxDay = Math.min(currentDay, 31);
+				const chartYear = today.getFullYear();
+				const chartMonth = today.getMonth();
+				const maxDay = Math.min(today.getDate(), daysInMonth);
 
 				const allDates = [];
 				for (let day = 1; day <= maxDay; day++) {
-					const date = new Date(2025, 9, day); // October is month 9
-					const dateStr = date.toISOString().split('T')[0];
+					const mm = String(chartMonth + 1).padStart(2, '0');
+					const dd = String(day).padStart(2, '0');
+					const dateStr = `${chartYear}-${mm}-${dd}`;
+					const date = new Date(chartYear, chartMonth, day);
 					allDates.push({
 						date: dateStr,
 						displayDate: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 					});
 				}
 
-				// Create labels from all October dates
 				const labels = allDates.map(d => d.displayDate);
 
-				// Color palette for different participants
 				const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
 
-				// Create datasets for each participant with cumulative data
 				const datasets = participants.map((participant, index) => {
-					// Find the last date where this participant has actual calorie data
 					let lastDataDate = null;
 					for (let i = allDates.length - 1; i >= 0; i--) {
 						if (allWeeksData[allDates[i].date]?.[participant] > 0) {
@@ -786,15 +882,8 @@ participants.forEach(participant => {
 						const dailyCalories = allWeeksData[dateObj.date]?.[participant] || 0;
 						cumulativeTotal += dailyCalories;
 
-						// If we haven't found any data for this participant yet, return null
-						if (cumulativeTotal === 0) {
-							return null;
-						}
-
-						// If this date is after the last date with actual data, return null to end the line
-						if (lastDataDate && dateObj.date > lastDataDate) {
-							return null;
-						}
+						if (cumulativeTotal === 0) return null;
+						if (lastDataDate && dateObj.date > lastDataDate) return null;
 
 						return cumulativeTotal;
 					});
@@ -805,7 +894,7 @@ participants.forEach(participant => {
 						label: participant,
 						data: data,
 						borderColor: color,
-						backgroundColor: color.replace('rgb', 'rgba').replace(')', ', 0.1)'),
+						backgroundColor: color + '1A',
 						borderWidth: 3,
 						fill: false,
 						tension: 0.4,
@@ -819,44 +908,29 @@ participants.forEach(participant => {
 
 				calorieChart = new Chart(ctx, {
 					type: 'line',
-					data: {
-						labels: labels,
-						datasets: datasets
-					},
+					data: { labels: labels, datasets: datasets },
 					options: {
 						responsive: true,
 						plugins: {
-							legend: {
-								display: true,
-								position: 'top'
+							legend: { display: true, position: 'top' },
+							tooltip: {
+								callbacks: {
+									label: function(context) {
+										return `${context.dataset.label}: ${context.parsed.y.toLocaleString()} cal`;
+									}
+								}
 							}
 						},
 						scales: {
-							y: {
-								beginAtZero: true,
-								title: {
-									display: true,
-									text: 'Calories Burned'
-								}
-							},
-							x: {
-								title: {
-									display: true,
-									text: 'Date'
-								}
-							}
+							y: { beginAtZero: true, ticks: { precision: 0 }, title: { display: true, text: 'Calories Burned' } },
+							x: { title: { display: true, text: 'Date' } }
 						}
 					}
 				});
 			}
-			
-			// Update chart after adding calories
-			function updateChart() {
-				// Chart will be updated on page reload for now
-				// In the future, we could fetch new data via AJAX
-			}
 
-			// Update the overall calories table dynamically
+			function updateChart() {}
+
 			async function updateOverallTable() {
 				try {
 					const response = await fetch('/api/debug-data');
@@ -869,19 +943,12 @@ participants.forEach(participant => {
 						if (tableBody) {
 							tableBody.innerHTML = sortedTotals.map((participant, index) => {
 								const rank = index + 1;
-								let rankStyle = "text-align: center; font-weight: bold;";
+								let rankClass = '';
 								let rankText = `#${rank}`;
 
-								if (rank === 1) {
-									rankStyle += " background: #FFD700; color: #000;"; // Gold
-									rankText = "🏆 #1";
-								} else if (rank === 2) {
-									rankStyle += " background: #C0C0C0; color: #000;"; // Silver
-									rankText = "🥈 #2";
-								} else if (rank === 3) {
-									rankStyle += " background: #CD7F32; color: #000;"; // Bronze
-									rankText = "🥉 #3";
-								}
+								if (rank === 1) { rankClass = 'rank-gold'; rankText = '#1'; }
+								else if (rank === 2) { rankClass = 'rank-silver'; rankText = '#2'; }
+								else if (rank === 3) { rankClass = 'rank-bronze'; rankText = '#3'; }
 
 								const safeName = document.createElement('div');
 								safeName.textContent = participant.name;
@@ -891,10 +958,10 @@ participants.forEach(participant => {
 
 								return `
 									<tr>
-										<td style="${rankStyle}">${rankText}</td>
-										<td style="text-align: left; font-weight: bold;">${escapedName}</td>
-										<td style="text-align: center;">${parseInt(participant.total_calories).toLocaleString()}</td>
-										<td style="text-align: center;">${pizzaSlices.toLocaleString()}</td>
+										<td class="${rankClass}" style="text-align:center; font-weight:700;">${rankText}</td>
+										<td style="text-align:left; font-weight:700;">${escapedName}</td>
+										<td>${parseInt(participant.total_calories).toLocaleString()}</td>
+										<td>${pizzaSlices.toLocaleString()}</td>
 									</tr>
 								`;
 							}).join('');
@@ -904,8 +971,7 @@ participants.forEach(participant => {
 					console.error('Error updating overall table:', error);
 				}
 			}
-			
-			// Toggle participant form
+
 			window.toggleParticipantForm = function() {
 				const form = document.getElementById('participantForm');
 				const toggle = document.querySelector('.participant-toggle');
@@ -920,8 +986,7 @@ participants.forEach(participant => {
 					}
 				}
 			}
-			
-			// Add participant
+
 			async function addParticipant() {
 				const name = document.getElementById('newParticipant').value.trim();
 				if (!name) {
@@ -939,8 +1004,7 @@ participants.forEach(participant => {
 					const result = await response.json();
 
 					if (response.ok) {
-						// Show success confirmation
-						alert(`✅ Success! "${name}" has been added to the contest!`);
+						alert(`"${name}" has been added to the contest!`);
 						document.getElementById('newParticipant').value = '';
 						window.location.reload();
 					} else {
@@ -951,7 +1015,6 @@ participants.forEach(participant => {
 				}
 			}
 
-			// Add calories
 			async function addCalories() {
 				const date = document.getElementById('selectedDate').value;
 				const participant = document.getElementById('selectedParticipant').value.trim();
@@ -962,7 +1025,6 @@ participants.forEach(participant => {
 					return;
 				}
 
-				// Calculate the correct week for the selected date
 				const correctWeek = getWeekForDate(date);
 
 				try {
@@ -974,18 +1036,13 @@ participants.forEach(participant => {
 
 					const result = await response.json();
 					if (response.ok) {
-						// Show success confirmation - use the date string directly to avoid timezone issues
 						const dateParts = date.split('-');
 						const month = new Date(0, parseInt(dateParts[1]) - 1).toLocaleDateString('en-US', { month: 'short' });
 						const formattedDate = `${month} ${parseInt(dateParts[2])}`;
-						alert(`🔥 Success! ${calories} calories added for ${participant} on ${formattedDate}!`);
+						alert(`${calories} calories added for ${participant} on ${formattedDate}!`);
 						document.getElementById('selectedParticipant').value = '';
 						document.getElementById('calorieAmount').value = '';
 
-						// Update the overall table dynamically
-						await updateOverallTable();
-
-						// Reload to update the weekly table and chart
 						window.location.reload();
 					} else {
 						alert(result.error || 'Failed to add calories');
@@ -995,31 +1052,15 @@ participants.forEach(participant => {
 				}
 			}
 
-			// Function to determine which week a date belongs to
 			function getWeekForDate(dateString) {
-				const weekDates = {
-					1: ['2025-10-01', '2025-10-02', '2025-10-03', '2025-10-04', '2025-10-05'],
-					2: ['2025-10-06', '2025-10-07', '2025-10-08', '2025-10-09', '2025-10-10', '2025-10-11', '2025-10-12'],
-					3: ['2025-10-13', '2025-10-14', '2025-10-15', '2025-10-16', '2025-10-17', '2025-10-18', '2025-10-19'],
-					4: ['2025-10-20', '2025-10-21', '2025-10-22', '2025-10-23', '2025-10-24', '2025-10-25', '2025-10-26'],
-					5: ['2025-10-27', '2025-10-28', '2025-10-29', '2025-10-30', '2025-10-31']
-				};
-
-				for (let week = 1; week <= 5; week++) {
-					if (weekDates[week].includes(dateString)) {
-						return week;
-					}
-				}
-				return 1; // Default to week 1
+				const day = parseInt(dateString.split('-')[2]);
+				return Math.min(Math.ceil(day / 7), 5);
 			}
 
-			// Week navigation
 			async function changeWeek(direction) {
 				const newWeek = currentWeek + direction;
 
-				if (newWeek < 1 || newWeek > 5) {
-					return; // October 2025 has 5 weeks max
-				}
+				if (newWeek < 1 || newWeek > 5) return;
 
 				try {
 					const response = await fetch('/api/change-week', {
@@ -1041,11 +1082,9 @@ participants.forEach(participant => {
 				}
 			}
 
-			// Add click listeners
 			document.addEventListener('DOMContentLoaded', function() {
-				// Initialize chart
 				initChart();
-				
+
 				const toggleButton = document.querySelector('.participant-toggle');
 				if (toggleButton) {
 					toggleButton.addEventListener('click', function(e) {
@@ -1053,7 +1092,7 @@ participants.forEach(participant => {
 						window.toggleParticipantForm();
 					});
 				}
-				
+
 				const addButton = document.getElementById('addParticipantBtn');
 				if (addButton) {
 					addButton.addEventListener('click', function(e) {
@@ -1061,7 +1100,7 @@ participants.forEach(participant => {
 						addParticipant();
 					});
 				}
-				
+
 				const addCaloriesButton = document.getElementById('addCaloriesBtn');
 				if (addCaloriesButton) {
 					addCaloriesButton.addEventListener('click', function(e) {
@@ -1070,7 +1109,6 @@ participants.forEach(participant => {
 					});
 				}
 
-				// Week navigation buttons
 				const prevWeekButton = document.getElementById('prevWeek');
 				if (prevWeekButton) {
 					prevWeekButton.addEventListener('click', function(e) {
@@ -1087,17 +1125,14 @@ participants.forEach(participant => {
 					});
 				}
 
-				// Initialize inline editing
 				initInlineEditing();
 
-				// Date input change handler to auto-switch weeks
 				const dateInput = document.getElementById('selectedDate');
 				if (dateInput) {
 					dateInput.addEventListener('change', async function(e) {
 						const selectedDate = e.target.value;
 						const selectedWeek = getWeekForDate(selectedDate);
 
-						// If the selected date is in a different week, switch to that week
 						if (selectedWeek !== currentWeek) {
 							try {
 								const response = await fetch('/api/change-week', {
@@ -1116,40 +1151,29 @@ participants.forEach(participant => {
 					});
 				}
 
-				// Initialize shoutbox
 				loadShoutboxMessages();
-
-				// Set up auto-refresh every 10 seconds
 				shoutboxRefreshInterval = setInterval(loadShoutboxMessages, 10000);
 
-				// Shoutbox event listeners
 				const sendBtn = document.getElementById('sendShoutBtn');
 				if (sendBtn) {
 					sendBtn.addEventListener('click', sendShout);
 				}
 
-				// Enter key handlers for shoutbox
 				const messageInput = document.getElementById('shoutMessage');
 				if (messageInput) {
 					messageInput.addEventListener('keypress', function(e) {
-						if (e.key === 'Enter') {
-							sendShout();
-						}
+						if (e.key === 'Enter') sendShout();
 					});
 				}
 
 				const usernameInput = document.getElementById('shoutUsername');
 				if (usernameInput) {
 					usernameInput.addEventListener('keypress', function(e) {
-						if (e.key === 'Enter') {
-							document.getElementById('shoutMessage').focus();
-						}
+						if (e.key === 'Enter') document.getElementById('shoutMessage').focus();
 					});
 				}
-
 			});
 
-			// Enter key handlers
 			document.getElementById('newParticipant').addEventListener('keypress', function(e) {
 				if (e.key === 'Enter') addParticipant();
 			});
@@ -1158,31 +1182,24 @@ participants.forEach(participant => {
 				if (e.key === 'Enter') addCalories();
 			});
 
-			// Inline editing functions - use event delegation
 			function initInlineEditing() {
-				// Use event delegation on the table to catch clicks on any editable cell
-				const table = document.querySelector('.excel-table');
+				const table = document.querySelector('.win-table');
 				if (table) {
 					table.addEventListener('click', function(e) {
 						const cell = e.target.closest('.editable-cell');
 						if (cell && !cell.classList.contains('editing')) {
-							// Only edit cells that have values
 							const valueSpan = cell.querySelector('.calorie-value');
-							if (valueSpan && valueSpan.textContent.trim() !== '') {
-								startEdit(cell);
-							}
+							startEdit(cell);
 						}
 					});
 				}
 			}
 
 			function startEdit(cell) {
-				// Store original value for rollback
 				const valueSpan = cell.querySelector('.calorie-value');
-				const originalValue = valueSpan.textContent.trim();
+				const originalValue = valueSpan ? valueSpan.textContent.trim() : '';
 				cell.setAttribute('data-original-value', originalValue);
 
-				// Create input field
 				const input = document.createElement('input');
 				input.type = 'number';
 				input.className = 'edit-input';
@@ -1190,14 +1207,12 @@ participants.forEach(participant => {
 				input.min = '0';
 				input.max = '50000';
 
-				// Replace content with input
 				cell.classList.add('editing');
 				cell.innerHTML = '';
 				cell.appendChild(input);
 				input.focus();
 				input.select();
 
-				// Handle save/cancel
 				input.addEventListener('keydown', function(e) {
 					if (e.key === 'Enter') {
 						e.preventDefault();
@@ -1209,7 +1224,6 @@ participants.forEach(participant => {
 				});
 
 				input.addEventListener('blur', function() {
-					// Save on blur if value changed
 					if (input.value !== originalValue) {
 						saveEdit(cell, input.value, originalValue);
 					} else {
@@ -1223,7 +1237,6 @@ participants.forEach(participant => {
 				const date = cell.getAttribute('data-date');
 				const week = parseInt(cell.getAttribute('data-week'));
 
-				// Validate input
 				const numValue = parseInt(newValue);
 				if (isNaN(numValue) || numValue < 0 || numValue > 50000) {
 					alert('Please enter a valid number between 0 and 50,000');
@@ -1232,7 +1245,6 @@ participants.forEach(participant => {
 					return;
 				}
 
-				// Show saving state
 				cell.classList.add('saving');
 				cell.classList.remove('editing');
 				cell.innerHTML = '<span class="calorie-value">Saving...</span>';
@@ -1252,33 +1264,18 @@ participants.forEach(participant => {
 					const result = await response.json();
 
 					if (response.ok) {
-						// Success - update display
-						cell.classList.remove('saving');
-						cell.innerHTML = `<span class="calorie-value">${numValue}</span>`;
-
-						// Update totals
-						updateTotalsAfterEdit();
-
-						// Update chart if it exists
-						if (typeof initChart === 'function') {
-							// Refresh chart data and re-render
-							location.reload(); // Simple approach - could be optimized
-						}
-
+						location.reload();
 					} else {
 						throw new Error(result.error || 'Failed to update calories');
 					}
-
 				} catch (error) {
 					console.error('Error updating calories:', error);
-					// Rollback on error
 					cell.classList.add('error');
 					cell.classList.remove('saving');
 					cell.innerHTML = `<span class="calorie-value">${originalValue}</span>`;
 
 					alert('Error updating calories: ' + error.message + '. Changes have been reverted.');
 
-					// Remove error state after 3 seconds
 					setTimeout(() => {
 						cell.classList.remove('error');
 					}, 3000);
@@ -1290,12 +1287,6 @@ participants.forEach(participant => {
 				cell.innerHTML = `<span class="calorie-value">${originalValue}</span>`;
 			}
 
-			function updateTotalsAfterEdit() {
-				// Simple approach - could be optimized to calculate without reload
-				// For now, just note that totals may be stale until page refresh
-			}
-
-			// Shoutbox functionality
 			let shoutboxRefreshInterval;
 
 			async function loadShoutboxMessages() {
@@ -1306,7 +1297,7 @@ participants.forEach(participant => {
 					const messagesContainer = document.getElementById('shoutboxMessages');
 					if (response.ok && result.data) {
 						if (result.data.length === 0) {
-							messagesContainer.innerHTML = '<div style="text-align: center; color: #7f8c8d; padding: 20px;">No messages yet. Be the first to say something!</div>';
+							messagesContainer.innerHTML = '<div style="text-align:center; color:var(--gray); padding:10px;">No messages yet. Be the first to say something!</div>';
 						} else {
 							messagesContainer.innerHTML = result.data.map(msg => {
 								const date = new Date(msg.created_at);
@@ -1316,7 +1307,6 @@ participants.forEach(participant => {
 									hour12: true
 								});
 
-								// Escape HTML to prevent XSS
 								const safeUsername = document.createElement('div');
 								safeUsername.textContent = msg.username;
 								const escapedUsername = safeUsername.innerHTML;
@@ -1326,26 +1316,23 @@ participants.forEach(participant => {
 								const escapedMessage = safeMessage.innerHTML;
 
 								return `
-									<div class="shout-message">
-										<div>
-											<span class="shout-username">${escapedUsername}</span>
-											<span class="shout-time">${timeStr}</span>
-										</div>
-										<div class="shout-text">${escapedMessage}</div>
+									<div class="shout-msg">
+										<span class="shout-user">${escapedUsername}</span>
+										<span class="shout-time">${timeStr}</span>
+										<span class="shout-text">${escapedMessage}</span>
 									</div>
 								`;
 							}).join('');
 
-							// Auto-scroll to bottom
 							messagesContainer.scrollTop = messagesContainer.scrollHeight;
 						}
 					} else {
-						messagesContainer.innerHTML = '<div style="text-align: center; color: #e74c3c; padding: 20px;">Error loading messages</div>';
+						messagesContainer.innerHTML = '<div style="text-align:center; color:#a80000; padding:10px;">Error loading messages</div>';
 					}
 				} catch (error) {
 					console.error('Error loading shoutbox:', error);
 					const messagesContainer = document.getElementById('shoutboxMessages');
-					messagesContainer.innerHTML = '<div style="text-align: center; color: #e74c3c; padding: 20px;">Error loading messages</div>';
+					messagesContainer.innerHTML = '<div style="text-align:center; color:#a80000; padding:10px;">Error loading messages</div>';
 				}
 			}
 
@@ -1362,7 +1349,6 @@ participants.forEach(participant => {
 					return;
 				}
 
-				// Disable button to prevent spam
 				sendBtn.disabled = true;
 				sendBtn.textContent = 'Sending...';
 
@@ -1376,8 +1362,8 @@ participants.forEach(participant => {
 					const result = await response.json();
 
 					if (response.ok) {
-						messageInput.value = ''; // Clear message, keep username
-						await loadShoutboxMessages(); // Refresh messages
+						messageInput.value = '';
+						await loadShoutboxMessages();
 					} else {
 						alert(result.error || 'Failed to send message');
 					}
@@ -1389,7 +1375,83 @@ participants.forEach(participant => {
 					sendBtn.textContent = 'Send';
 				}
 			}
+		</script>
+		<script>
+			// Win95 Custom Scrollbar
+			(function() {
+				const content = document.getElementById('scrollContent');
+				const thumb = document.getElementById('scrollThumb');
+				const track = document.getElementById('scrollTrack');
+				const upBtn = document.getElementById('scrollUp');
+				const downBtn = document.getElementById('scrollDown');
+				if (!content || !thumb || !track) return;
 
+				function updateThumb() {
+					const { scrollTop, scrollHeight, clientHeight } = content;
+					if (scrollHeight <= clientHeight) {
+						thumb.style.display = 'none';
+						return;
+					}
+					thumb.style.display = 'block';
+					const trackH = track.clientHeight;
+					const thumbH = Math.max(30, (clientHeight / scrollHeight) * trackH);
+					const maxThumbTop = trackH - thumbH;
+					const scrollFraction = scrollTop / (scrollHeight - clientHeight);
+					thumb.style.height = thumbH + 'px';
+					thumb.style.top = (scrollFraction * maxThumbTop) + 'px';
+				}
+
+				content.addEventListener('scroll', updateThumb);
+				new ResizeObserver(updateThumb).observe(content);
+				updateThumb();
+
+				// Drag thumb
+				let dragging = false, dragStartY = 0, dragStartTop = 0;
+				thumb.addEventListener('mousedown', function(e) {
+					e.preventDefault();
+					dragging = true;
+					dragStartY = e.clientY;
+					dragStartTop = parseInt(thumb.style.top) || 0;
+					document.body.style.userSelect = 'none';
+				});
+				window.addEventListener('mousemove', function(e) {
+					if (!dragging) return;
+					const { scrollHeight, clientHeight } = content;
+					const trackH = track.clientHeight;
+					const thumbH = thumb.offsetHeight;
+					const maxThumbTop = trackH - thumbH;
+					const delta = e.clientY - dragStartY;
+					const newTop = Math.max(0, Math.min(maxThumbTop, dragStartTop + delta));
+					const scrollFraction = newTop / maxThumbTop;
+					content.scrollTop = scrollFraction * (scrollHeight - clientHeight);
+				});
+				window.addEventListener('mouseup', function() {
+					dragging = false;
+					document.body.style.userSelect = '';
+				});
+
+				// Click track to jump
+				track.addEventListener('mousedown', function(e) {
+					if (e.target === thumb) return;
+					const rect = track.getBoundingClientRect();
+					const clickY = e.clientY - rect.top;
+					const thumbCenter = (parseInt(thumb.style.top) || 0) + thumb.offsetHeight / 2;
+					const { scrollHeight, clientHeight } = content;
+					const pageSize = clientHeight * 0.8;
+					content.scrollTop += clickY < thumbCenter ? -pageSize : pageSize;
+				});
+
+				// Arrow buttons with repeat
+				let scrollInterval;
+				function startScroll(dir) {
+					content.scrollTop += dir * 40;
+					scrollInterval = setInterval(() => content.scrollTop += dir * 40, 50);
+				}
+				function stopScroll() { clearInterval(scrollInterval); }
+				upBtn.addEventListener('mousedown', function(e) { e.preventDefault(); startScroll(-1); });
+				downBtn.addEventListener('mousedown', function(e) { e.preventDefault(); startScroll(1); });
+				window.addEventListener('mouseup', stopScroll);
+			})();
 		</script>
 	</body>
 </html>
