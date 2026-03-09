@@ -9,9 +9,10 @@ let participantTotals = [];
 let currentWeekNumber = 1;
 let allWeeksData = {};
 
-// Check URL param for manual week navigation, otherwise use today's date
+// Check URL params for manual week/date navigation
 const url = new URL(Astro.request.url);
 const weekParam = url.searchParams.get('week');
+const dateParam = url.searchParams.get('date');
 
 try {
   participants = await getParticipants();
@@ -82,7 +83,7 @@ const daysInCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).ge
 
 // Set date picker to today if within displayed week, otherwise first day of displayed week
 const todayStr = getCurrentDateInEasternTime();
-const defaultDate = weekDateStrings.includes(todayStr) ? todayStr : weekDateStrings[0];
+const defaultDate = dateParam || (weekDateStrings.includes(todayStr) ? todayStr : weekDateStrings[0]);
 
 // Calculate weekly totals for each participant
 const weeklyTotals = {};
@@ -1144,7 +1145,7 @@ participants.forEach(participant => {
 						const selectedWeek = getWeekForDate(selectedDate);
 
 						if (selectedWeek !== currentWeek) {
-							window.location.href = `/?week=${selectedWeek}`;
+							window.location.href = `/?week=${selectedWeek}&date=${selectedDate}`;
 						}
 					});
 				}
