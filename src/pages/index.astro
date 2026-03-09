@@ -889,22 +889,10 @@ participants.forEach(participant => {
 				const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
 
 				const datasets = participants.map((participant, index) => {
-					let lastDataDate = null;
-					for (let i = allDates.length - 1; i >= 0; i--) {
-						if (allWeeksData[allDates[i].date]?.[participant] > 0) {
-							lastDataDate = allDates[i].date;
-							break;
-						}
-					}
-
 					let cumulativeTotal = 0;
-					const data = allDates.map((dateObj, dateIndex) => {
+					const data = allDates.map(dateObj => {
 						const dailyCalories = allWeeksData[dateObj.date]?.[participant] || 0;
 						cumulativeTotal += dailyCalories;
-
-						if (cumulativeTotal === 0) return null;
-						if (lastDataDate && dateObj.date > lastDataDate) return null;
-
 						return cumulativeTotal;
 					});
 
@@ -921,8 +909,7 @@ participants.forEach(participant => {
 						pointBackgroundColor: color,
 						pointBorderColor: color,
 						pointBorderWidth: 2,
-						pointRadius: 3,
-						spanGaps: false
+						pointRadius: 3
 					};
 				});
 
