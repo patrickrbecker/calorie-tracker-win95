@@ -866,11 +866,11 @@ participants.forEach(participant => {
 					calorieChart.destroy();
 				}
 
-				// Generate dates for current month up to today
+				// Generate dates for entire current month
 				const today = new Date();
 				const chartYear = today.getFullYear();
 				const chartMonth = today.getMonth();
-				const maxDay = Math.min(today.getDate(), daysInMonth);
+				const maxDay = daysInMonth;
 
 				const allDates = [];
 				for (let day = 1; day <= maxDay; day++) {
