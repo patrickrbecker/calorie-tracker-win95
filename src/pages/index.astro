@@ -531,13 +531,14 @@ participants.forEach(participant => {
 				font-size: 0.9rem;
 			}
 			.shout-msg {
-				padding: 3px 0;
+				padding: 6px 4px;
 				border-bottom: 1px dotted var(--gray);
 			}
 			.shout-msg:last-child { border-bottom: none; }
-			.shout-user { font-weight: 700; color: var(--title-bg); }
+			.shout-header { margin-bottom: 2px; }
 			.shout-time { color: var(--gray); font-size: 0.8rem; }
-			.shout-text { margin-left: 4px; }
+			.shout-user { font-weight: 700; color: var(--title-bg); }
+			.shout-text { display: block; padding-left: 4px; margin-top: 2px; }
 			.shoutbox-form {
 				display: flex;
 				gap: 4px;
@@ -1314,9 +1315,8 @@ participants.forEach(participant => {
 
 								return `
 									<div class="shout-msg">
-										<span class="shout-user">${escapedUsername}</span>
-										<span class="shout-time">${timeStr}</span>
-										<span class="shout-text">${escapedMessage}</span>
+										<div class="shout-header"><span class="shout-time">${timeStr}</span> <span class="shout-user">${escapedUsername}</span></div>
+										<span class="shout-text">- ${escapedMessage}</span>
 									</div>
 								`;
 							}).join('');
