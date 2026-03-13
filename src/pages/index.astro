@@ -616,8 +616,10 @@ participants.forEach(participant => {
 				.week-label { font-size: 1.1rem; }
 				.shoutbox-form { flex-direction: column; }
 				.shoutbox-form .win-input,
+				.shoutbox-form .win-select,
 				.shoutbox-form .btn { width: 100%; }
-				.shoutbox-form .win-input[style] { width: 100% !important; }
+				.shoutbox-form .win-input[style],
+				.shoutbox-form .win-select[style] { width: 100% !important; }
 				.win-table th, .win-table td { padding: 3px 4px; font-size: 0.82rem; }
 				.win-table .date-cell { padding-left: 4px; font-size: 0.78rem; }
 				.status-bar { flex-direction: column; }
@@ -817,7 +819,12 @@ participants.forEach(participant => {
 						</div>
 					</div>
 					<div class="shoutbox-form">
-						<input type="text" class="win-input" id="shoutUsername" placeholder="Name" maxlength="255" style="width:120px; flex:none;">
+						<select class="win-select" id="shoutUsername" style="width:120px; flex:none;">
+							<option value="">Name</option>
+							{participants.map(p => (
+								<option value={p}>{p}</option>
+							))}
+						</select>
 						<input type="text" class="win-input" id="shoutMessage" placeholder="Type a message..." maxlength="500">
 						<button type="button" class="btn" id="sendShoutBtn">Send</button>
 					</div>
