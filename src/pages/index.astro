@@ -1174,11 +1174,8 @@ participants.forEach(participant => {
 				}
 			});
 
-			document.getElementById('newParticipant').addEventListener('keypress', function(e) {
-				if (e.key === 'Enter') addParticipant();
-			});
-
-			document.getElementById('calorieAmount').addEventListener('keypress', function(e) {
+			const calorieAmountInput = document.getElementById('calorieAmount');
+			if (calorieAmountInput) calorieAmountInput.addEventListener('keypress', function(e) {
 				if (e.key === 'Enter') addCalories();
 			});
 
