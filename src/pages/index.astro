@@ -595,7 +595,7 @@ participants.forEach(participant => {
 			@media (max-width: 768px) {
 				html, body { height: auto; overflow: auto; }
 				body {
-					padding: 10px 8px;
+					padding: 12px;
 					align-items: flex-start;
 					background: url("/bg.jpg") center top / cover no-repeat scroll #008080;
 					min-height: 100vh;
@@ -603,16 +603,17 @@ participants.forEach(participant => {
 				.window {
 					max-height: none;
 					max-width: 100%;
+					overflow: hidden;
 				}
-				.content-wrapper { overflow: visible; }
-				.content { overflow: visible; }
+				.content-wrapper { overflow: visible; max-width: 100%; }
+				.content { overflow: visible; max-width: 100%; }
 				.win95-scrollbar { display: none; }
 				.resize-handle { display: none; }
-				.controls-bar { flex-direction: column; }
+				.controls-bar { flex-direction: column; overflow: hidden; }
 				.controls-bar .win-input,
 				.controls-bar .win-select,
-				.controls-bar .btn { width: 100%; }
-				.controls-bar .win-input[style] { width: 100% !important; }
+				.controls-bar .btn { width: 100%; max-width: 100%; box-sizing: border-box; }
+				.controls-bar .win-input[style] { width: 100% !important; max-width: 100% !important; }
 				.participant-form.show { flex-direction: column; }
 				.participant-form .win-input,
 				.participant-form .btn { width: 100%; }
