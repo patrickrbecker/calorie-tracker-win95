@@ -84,6 +84,7 @@ const daysInCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).ge
 // Set date picker to today if within displayed week, otherwise first day of displayed week
 const todayStr = getCurrentDateInEasternTime();
 const defaultDate = dateParam || (weekDateStrings.includes(todayStr) ? todayStr : weekDateStrings[0]);
+const protectedUser = import.meta.env.PROTECTED_USER || '';
 
 // Calculate weekly totals for each participant
 const weeklyTotals = {};
@@ -863,7 +864,7 @@ participants.forEach(participant => {
 		</div>
 
 		<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-		<script define:vars={{ currentWeek: currentWeekNumber, chartData: participantTotals, weekData: weekData, participants: participants, weekDays: weekDays, allWeeksData: allWeeksData, daysInMonth: daysInCurrentMonth }}>
+		<script define:vars={{ currentWeek: currentWeekNumber, chartData: participantTotals, weekData: weekData, participants: participants, weekDays: weekDays, allWeeksData: allWeeksData, daysInMonth: daysInCurrentMonth, protectedUser: protectedUser }}>
 			// currentWeek is now available from define:vars
 
 			// Initialize chart if we have data
@@ -1051,10 +1052,17 @@ participants.forEach(participant => {
 
 				const correctWeek = getWeekForDate(date);
 
+				const headers = { 'Content-Type': 'application/json' };
+				if (protectedUser && participant === protectedUser) {
+					const pin = prompt('Enter PIN for ' + participant + ':');
+					if (!pin) return;
+					headers['x-user-pin'] = pin;
+				}
+
 				try {
 					const response = await fetch('/api/add-calories', {
 						method: 'POST',
-						headers: { 'Content-Type': 'application/json' },
+						headers,
 						body: JSON.stringify({ date, participant, calories, week: correctWeek })
 					});
 
@@ -1351,13 +1359,20 @@ participants.forEach(participant => {
 					return;
 				}
 
+				const shoutHeaders = { 'Content-Type': 'application/json' };
+				if (protectedUser && username === protectedUser) {
+					const pin = prompt('Enter PIN for ' + username + ':');
+					if (!pin) return;
+					shoutHeaders['x-user-pin'] = pin;
+				}
+
 				sendBtn.disabled = true;
 				sendBtn.textContent = 'Sending...';
 
 				try {
 					const response = await fetch('/api/add-shout', {
 						method: 'POST',
-						headers: { 'Content-Type': 'application/json' },
+						headers: shoutHeaders,
 						body: JSON.stringify({ username, message })
 					});
 

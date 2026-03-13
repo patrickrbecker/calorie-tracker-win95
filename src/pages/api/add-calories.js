@@ -46,6 +46,19 @@ export async function POST({ request }) {
       });
     }
 
+    // PIN protection for specific user
+    const protectedUser = process.env.PROTECTED_USER;
+    const protectedPin = process.env.PROTECTED_PIN;
+    if (protectedUser && trimmedParticipant === protectedUser) {
+      const pin = request.headers.get('x-user-pin');
+      if (!pin || pin !== protectedPin) {
+        return new Response(JSON.stringify({ error: 'Incorrect PIN' }), {
+          status: 403,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
     await addCalories(trimmedParticipant, date, numCalories, week);
 
     return new Response(JSON.stringify({ 

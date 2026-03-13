@@ -47,6 +47,19 @@ export async function POST({ request }) {
       });
     }
 
+    // PIN protection for specific user
+    const protectedUser = process.env.PROTECTED_USER;
+    const protectedPin = process.env.PROTECTED_PIN;
+    if (protectedUser && trimmedUsername === protectedUser) {
+      const pin = request.headers.get('x-user-pin');
+      if (!pin || pin !== protectedPin) {
+        return new Response(JSON.stringify({ error: 'Incorrect PIN' }), {
+          status: 403,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
     const result = await addShoutboxMessage(trimmedUsername, trimmedMessage);
 
     return new Response(JSON.stringify({
