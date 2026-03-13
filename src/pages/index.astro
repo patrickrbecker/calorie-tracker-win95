@@ -382,6 +382,7 @@ participants.forEach(participant => {
 			.table-scroll { overflow-x: auto; }
 			.win-table {
 				width: 100%;
+				table-layout: fixed;
 				border-collapse: collapse;
 				font-size: 0.92rem;
 				background: #fff;
@@ -394,12 +395,16 @@ participants.forEach(participant => {
 				border: 1px solid var(--dark);
 				font-weight: 700;
 				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
 			}
 			.win-table td {
 				padding: 4px 8px;
 				text-align: center;
 				border: 1px solid var(--gray);
 				background: #fff;
+				overflow: hidden;
+				text-overflow: ellipsis;
 			}
 			.win-table tr:hover td { background: #ffffcc; }
 			.win-table .date-cell {
