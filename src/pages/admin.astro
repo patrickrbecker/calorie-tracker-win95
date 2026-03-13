@@ -261,6 +261,18 @@ import Analytics from '@vercel/analytics/astro';
                 </div>
             </fieldset>
 
+            <fieldset class="group-box">
+                <legend>Manage Participants</legend>
+                <div class="group-box-content">
+                    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                        <input type="text" id="newParticipant" placeholder="Participant name" style="font-family: 'W95', sans-serif; font-size: 1rem; background: #fff; color: var(--dark); border: 2px solid; border-color: var(--gray) var(--white) var(--white) var(--gray); box-shadow: var(--dark) 1px 1px 0 0 inset, var(--light) -1px -1px 0 0 inset; padding: 3px 6px; height: 28px; flex: 1; min-width: 150px;">
+                        <button class="btn" id="addParticipantBtn">Add Participant</button>
+                    </div>
+                    <small style="color: var(--gray);">Case sensitive, cannot be changed. Requires admin key.</small>
+                    <div id="participantStatus" class="status-msg"></div>
+                </div>
+            </fieldset>
+
             <fieldset class="group-box danger-box">
                 <legend>Danger Zone - Reset Database</legend>
                 <div class="group-box-content">
@@ -291,6 +303,44 @@ import Analytics from '@vercel/analytics/astro';
         document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('clearButton').addEventListener('click', clearAllData);
         });
+
+        document.getElementById('addParticipantBtn').addEventListener('click', addParticipant);
+        document.getElementById('newParticipant').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') addParticipant();
+        });
+
+        async function addParticipant() {
+            const nameInput = document.getElementById('newParticipant');
+            const status = document.getElementById('participantStatus');
+            const name = nameInput.value.trim();
+
+            if (!name) { alert('Please enter a participant name'); return; }
+
+            const adminKey = prompt('Enter admin key:');
+            if (!adminKey) return;
+
+            try {
+                const response = await fetch('/api/add-participant', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKey },
+                    body: JSON.stringify({ name })
+                });
+                const result = await response.json();
+
+                if (response.ok) {
+                    status.className = 'status-msg success';
+                    status.textContent = `"${name}" added to contest!`;
+                    status.style.display = 'block';
+                    nameInput.value = '';
+                } else {
+                    throw new Error(result.error || 'Failed to add participant');
+                }
+            } catch (error) {
+                status.className = 'status-msg error';
+                status.textContent = 'Error: ' + error.message;
+                status.style.display = 'block';
+            }
+        }
 
         async function clearAllData() {
             const button = document.getElementById('clearButton');

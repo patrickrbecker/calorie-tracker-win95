@@ -680,17 +680,6 @@ participants.forEach(participant => {
 				<button class="btn" id="nextWeek"><img src="/icons/calendar.png" alt="" class="btn-icon"> Next Week &gt;</button>
 			</div>
 
-			<!-- Participant Management -->
-			<button class="participant-toggle" type="button">
-				<span>Manage Participants ({participants.length} active)</span>
-				<span class="toggle-arrow">&#9660;</span>
-			</button>
-			<div class="participant-form" id="participantForm">
-				<input type="text" class="win-input" id="newParticipant" placeholder="Participant name" style="flex:1; min-width:150px;">
-				<button type="button" class="btn btn-add" id="addParticipantBtn">Add Participant</button>
-				<small style="color: var(--gray);">Case sensitive, cannot be changed</small>
-			</div>
-
 			<!-- Controls -->
 			<div class="controls-bar">
 				<input type="date" class="win-input" id="selectedDate" value={defaultDate}>

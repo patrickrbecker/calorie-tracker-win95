@@ -2,6 +2,14 @@ import { addParticipant } from '../../lib/db.js';
 
 export async function POST({ request }) {
   try {
+    const adminKey = request.headers.get('x-admin-key');
+    if (!adminKey || adminKey !== process.env.ADMIN_KEY) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
     const { name } = await request.json();
     
     const trimmedName = name?.trim();
