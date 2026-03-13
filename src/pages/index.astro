@@ -413,6 +413,7 @@ participants.forEach(participant => {
 				text-align: left;
 				padding-left: 10px;
 				white-space: nowrap;
+				width: 100px;
 			}
 			.win-table tr:hover .date-cell { background: #e8e8c8; }
 
@@ -711,7 +712,7 @@ participants.forEach(participant => {
 							<table class="win-table">
 								<thead>
 									<tr>
-										<th>Date</th>
+										<th style="width:100px;">Date</th>
 										{participants.map(participant => (
 											<th>{participant}</th>
 										))}
