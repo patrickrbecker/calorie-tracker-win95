@@ -782,9 +782,9 @@ participants.forEach(participant => {
 												let rankClass = '';
 												let rankText = `#${rank}`;
 
-												if (rank === 1) { rankClass = 'rank-gold'; rankText = '#1'; }
-												else if (rank === 2) { rankClass = 'rank-silver'; rankText = '#2'; }
-												else if (rank === 3) { rankClass = 'rank-bronze'; rankText = '#3'; }
+												if (rank === 1) { rankClass = 'rank-gold'; rankText = '🥇'; }
+												else if (rank === 2) { rankClass = 'rank-silver'; rankText = '🥈'; }
+												else if (rank === 3) { rankClass = 'rank-bronze'; rankText = '🥉'; }
 
 												const pizzaSlices = Math.floor(participant.total_calories / 300);
 												const tortasPounded = Math.floor(participant.total_calories / 100);
@@ -971,9 +971,9 @@ participants.forEach(participant => {
 								let rankClass = '';
 								let rankText = `#${rank}`;
 
-								if (rank === 1) { rankClass = 'rank-gold'; rankText = '#1'; }
-								else if (rank === 2) { rankClass = 'rank-silver'; rankText = '#2'; }
-								else if (rank === 3) { rankClass = 'rank-bronze'; rankText = '#3'; }
+								if (rank === 1) { rankClass = 'rank-gold'; rankText = '🥇'; }
+								else if (rank === 2) { rankClass = 'rank-silver'; rankText = '🥈'; }
+								else if (rank === 3) { rankClass = 'rank-bronze'; rankText = '🥉'; }
 
 								const safeName = document.createElement('div');
 								safeName.textContent = participant.name;
