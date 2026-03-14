@@ -635,6 +635,7 @@ participants.forEach(participant => {
 				.title-bar span { font-size: 0.85rem; }
 				.group-box { padding: 8px; margin-bottom: 6px; }
 				.group-box legend { font-size: 0.85rem; }
+				.hide-mobile { display: none; }
 			}
 
 			/* scrollbar */
@@ -769,9 +770,9 @@ participants.forEach(participant => {
 										<tr>
 											<th>Rank</th>
 											<th>Participant</th>
-											<th>Total Calories</th>
-											<th>Pizza Slices Burned</th>
-											<th>Torta's Pounded</th>
+											<th><span class="hide-mobile">Total </span>Cals</th>
+											<th><span class="hide-mobile">Pizza Slices </span>🍕</th>
+											<th><span class="hide-mobile">Torta's </span>🍑</th>
 										</tr>
 									</thead>
 									<tbody id="overallTableBody">
