@@ -908,7 +908,6 @@ participants.forEach(participant => {
 				const datasets = participants.map((participant, index) => {
 					let cumulativeTotal = 0;
 					const data = allDates.map(dateObj => {
-						if (dateObj.date > todayStr) return null;
 						const dailyCalories = allWeeksData[dateObj.date]?.[participant] || 0;
 						cumulativeTotal += dailyCalories;
 						return cumulativeTotal;
