@@ -60,7 +60,8 @@ export async function POST({ request }) {
       }
     }
 
-    const result = await addShoutboxMessage(trimmedUsername, trimmedMessage);
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    const result = await addShoutboxMessage(trimmedUsername, trimmedMessage, ip);
 
     return new Response(JSON.stringify({
       success: true,

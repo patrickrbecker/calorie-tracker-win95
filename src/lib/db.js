@@ -43,9 +43,11 @@ export async function initDB() {
       id SERIAL PRIMARY KEY,
       username VARCHAR(255) NOT NULL,
       message TEXT NOT NULL,
+      ip VARCHAR(45),
       created_at TIMESTAMP DEFAULT NOW()
     )
   `;
+  await sql`ALTER TABLE shoutbox ADD COLUMN IF NOT EXISTS ip VARCHAR(45)`;
 }
 
 export async function addParticipant(name) {
@@ -174,14 +176,14 @@ export async function getAllWeeksData() {
   return allData;
 }
 
-export async function addShoutboxMessage(username, message) {
+export async function addShoutboxMessage(username, message, ip) {
   await ensureInit();
   if (!username || !message) throw new Error('Username and message are required');
   if (message.length > 500) throw new Error('Message too long (max 500 characters)');
 
   const rows = await sql`
-    INSERT INTO shoutbox (username, message)
-    VALUES (${username.trim().substring(0, 255)}, ${message.trim()})
+    INSERT INTO shoutbox (username, message, ip)
+    VALUES (${username.trim().substring(0, 255)}, ${message.trim()}, ${ip || null})
     RETURNING *
   `;
   return rows[0];
