@@ -909,6 +909,8 @@ participants.forEach(participant => {
 				const datasets = participants.map((participant, index) => {
 					let cumulativeTotal = 0;
 					const data = allDates.map(dateObj => {
+						// Only plot up to today — future dates show null (no line drawn)
+						if (dateObj.date > todayStr) return null;
 						const dailyCalories = allWeeksData[dateObj.date]?.[participant] || 0;
 						cumulativeTotal += dailyCalories;
 						return cumulativeTotal;
@@ -927,7 +929,8 @@ participants.forEach(participant => {
 						pointBackgroundColor: color,
 						pointBorderColor: color,
 						pointBorderWidth: 2,
-						pointRadius: 3
+						pointRadius: 3,
+						spanGaps: false
 					};
 				});
 
