@@ -900,15 +900,19 @@ participants.forEach(participant => {
 					});
 				}
 
-				const labels = allDates.map(d => d.displayDate);
-
 				const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
 
 				const todayStr = `${chartYear}-${String(chartMonth + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
+				// Add a "Start" baseline point so lines visually begin at 0
+				const chartDates = [{ date: 'start', displayDate: 'Start' }, ...allDates];
+				const labelsWithStart = chartDates.map(d => d.displayDate);
+
 				const datasets = participants.map((participant, index) => {
 					let cumulativeTotal = 0;
-					const data = allDates.map(dateObj => {
+					const data = chartDates.map(dateObj => {
+						// "Start" baseline — everyone begins at 0
+						if (dateObj.date === 'start') return 0;
 						// Only plot up to today — future dates show null (no line drawn)
 						if (dateObj.date > todayStr) return null;
 						const dailyCalories = allWeeksData[dateObj.date]?.[participant] || 0;
@@ -938,7 +942,7 @@ participants.forEach(participant => {
 
 				calorieChart = new Chart(ctx, {
 					type: 'line',
-					data: { labels: labels, datasets: datasets.map(ds => ({
+					data: { labels: labelsWithStart, datasets: datasets.map(ds => ({
 						...ds,
 						borderWidth: isMobile ? 2 : 3,
 						pointRadius: isMobile ? 1 : 3,
