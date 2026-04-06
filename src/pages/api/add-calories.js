@@ -31,7 +31,7 @@ export async function POST({ request }) {
     }
 
     // Security: Validate week number
-    if (week < 1 || week > 5) {
+    if (week < 1 || week > 6) {
       return new Response(JSON.stringify({ error: 'Invalid week number' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }

@@ -78,12 +78,22 @@ export async function addCalories(participantName, date, calories, weekNumber) {
   return rows[0];
 }
 
-export async function getWeekData(weekNumber) {
+export async function getWeekData(weekNumber, dateRange = null) {
   await ensureInit();
-  const rows = await sql`
-    SELECT date, participant_name, calories
-    FROM calories WHERE week_number = ${weekNumber}
-  `;
+  let rows;
+  if (dateRange && dateRange.start && dateRange.end) {
+    // Query by date range (preferred — matches display regardless of stored week_number)
+    rows = await sql`
+      SELECT date, participant_name, calories
+      FROM calories WHERE date >= ${dateRange.start} AND date <= ${dateRange.end}
+    `;
+  } else {
+    // Fallback: query by week_number
+    rows = await sql`
+      SELECT date, participant_name, calories
+      FROM calories WHERE week_number = ${weekNumber}
+    `;
+  }
   const weekData = {};
   rows.forEach(row => {
     const d = row.date instanceof Date

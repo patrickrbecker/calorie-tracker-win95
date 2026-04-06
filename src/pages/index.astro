@@ -21,7 +21,13 @@ try {
 
   currentWeekNumber = weekParam ? Math.min(Math.max(parseInt(weekParam) || 1, 1), getSundayWeeks().length) : getCurrentWeekByDate();
 
-  weekData = await getWeekData(currentWeekNumber);
+  // Get date range for this week to query by dates (not week_number)
+  const weekDatesForQuery = getWeekDates(currentWeekNumber);
+  const dateRange = weekDatesForQuery.length > 0 ? {
+    start: weekDatesForQuery[0],
+    end: weekDatesForQuery[weekDatesForQuery.length - 1]
+  } : null;
+  weekData = await getWeekData(currentWeekNumber, dateRange);
 } catch (error) {
   console.log('No existing data found, starting fresh');
   currentWeekNumber = weekParam ? Math.min(Math.max(parseInt(weekParam) || 1, 1), getSundayWeeks().length) : getCurrentWeekByDate();
