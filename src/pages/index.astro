@@ -19,12 +19,12 @@ try {
   participantTotals = await getParticipantTotals();
   allWeeksData = await getAllWeeksData();
 
-  currentWeekNumber = weekParam ? Math.min(Math.max(parseInt(weekParam) || 1, 1), 5) : getCurrentWeekByDate();
+  currentWeekNumber = weekParam ? Math.min(Math.max(parseInt(weekParam) || 1, 1), getSundayWeeks().length) : getCurrentWeekByDate();
 
   weekData = await getWeekData(currentWeekNumber);
 } catch (error) {
   console.log('No existing data found, starting fresh');
-  currentWeekNumber = weekParam ? Math.min(Math.max(parseInt(weekParam) || 1, 1), 5) : getCurrentWeekByDate();
+  currentWeekNumber = weekParam ? Math.min(Math.max(parseInt(weekParam) || 1, 1), getSundayWeeks().length) : getCurrentWeekByDate();
 }
 
 // Function to get current date in Eastern Time as YYYY-MM-DD string
@@ -34,23 +34,56 @@ function getCurrentDateInEasternTime() {
   return parts;
 }
 
-// For local dev: weeks are Mon-Sun based on current month
-function getCurrentWeekByDate() {
-  const now = new Date(getCurrentDateInEasternTime());
-  const day = now.getDate();
-  return Math.min(Math.ceil(day / 7), 5);
-}
-
-// Generate dates for a given week number in the current month
-function getWeekDates(weekNumber) {
+// Weeks start on Sunday. Compute Sunday-based week boundaries for the current month.
+function getSundayWeeks() {
   const now = new Date(getCurrentDateInEasternTime());
   const year = now.getFullYear();
   const month = now.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const startDay = (weekNumber - 1) * 7 + 1;
-  const endDay = Math.min(weekNumber * 7, daysInMonth);
+  const firstDayOfWeek = new Date(year, month, 1).getDay(); // 0=Sun
+
+  const weeks = [];
+  let weekStart = 1;
+
+  // Week 1: day 1 through the first Saturday (or end of month)
+  let firstSatDay = (7 - firstDayOfWeek) % 7; // days until first Saturday
+  if (firstSatDay === 0 && firstDayOfWeek !== 0) firstSatDay = 7;
+  if (firstSatDay === 0) firstSatDay = 7; // if month starts on Sunday, first week is 7 days
+  let weekEnd = Math.min(firstSatDay || 7, daysInMonth);
+  weeks.push({ start: weekStart, end: weekEnd });
+
+  // Remaining weeks: Sunday to Saturday
+  weekStart = weekEnd + 1;
+  while (weekStart <= daysInMonth) {
+    weekEnd = Math.min(weekStart + 6, daysInMonth);
+    weeks.push({ start: weekStart, end: weekEnd });
+    weekStart = weekEnd + 1;
+  }
+
+  return weeks;
+}
+
+function getCurrentWeekByDate() {
+  const now = new Date(getCurrentDateInEasternTime());
+  const day = now.getDate();
+  const weeks = getSundayWeeks();
+  for (let i = 0; i < weeks.length; i++) {
+    if (day >= weeks[i].start && day <= weeks[i].end) {
+      return i + 1;
+    }
+  }
+  return weeks.length;
+}
+
+// Generate dates for a given week number in the current month (Sunday-based)
+function getWeekDates(weekNumber) {
+  const now = new Date(getCurrentDateInEasternTime());
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const weeks = getSundayWeeks();
+  const week = weeks[Math.min(weekNumber - 1, weeks.length - 1)];
   const dates = [];
-  for (let d = startDay; d <= endDay; d++) {
+  for (let d = week.start; d <= week.end; d++) {
     const mm = String(month + 1).padStart(2, '0');
     const dd = String(d).padStart(2, '0');
     dates.push(`${year}-${mm}-${dd}`);
