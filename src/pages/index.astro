@@ -125,9 +125,9 @@ const todayStr = getCurrentDateInEasternTime();
 const defaultDate = dateParam || (weekDateStrings.includes(todayStr) ? todayStr : weekDateStrings[0]);
 const protectedUser = import.meta.env.PROTECTED_USER || '';
 
-// Halloween theme: October 2026 only (Eastern). Preview with ?theme=halloween / ?theme=off
+// Halloween theme: 2026-09-28 through 2026-10-31 (Eastern), off from Nov 1. Preview with ?theme=halloween / ?theme=off
 const themeParam = url.searchParams.get('theme');
-const isHalloween = themeParam === 'halloween' || (themeParam !== 'off' && todayStr.startsWith('2026-10'));
+const isHalloween = themeParam === 'halloween' || (themeParam !== 'off' && todayStr >= '2026-09-28' && todayStr <= '2026-10-31');
 const contestMonth = contestLabel.split(' ')[0];
 
 // Calculate weekly totals for each participant
