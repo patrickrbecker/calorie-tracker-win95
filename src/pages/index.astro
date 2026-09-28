@@ -125,6 +125,11 @@ const todayStr = getCurrentDateInEasternTime();
 const defaultDate = dateParam || (weekDateStrings.includes(todayStr) ? todayStr : weekDateStrings[0]);
 const protectedUser = import.meta.env.PROTECTED_USER || '';
 
+// Halloween theme: October 2026 only (Eastern). Preview with ?theme=halloween / ?theme=off
+const themeParam = url.searchParams.get('theme');
+const isHalloween = themeParam === 'halloween' || (themeParam !== 'off' && todayStr.startsWith('2026-10'));
+const contestMonth = contestLabel.split(' ')[0];
+
 // Calculate weekly totals for each participant
 const weeklyTotals = {};
 participants.forEach(participant => {
@@ -136,15 +141,40 @@ participants.forEach(participant => {
     }
   });
 });
+// Halloween lights the week's top total(s) on the marquee strip; an all-zero week has no leader
+const weekTop = Math.max(0, ...Object.values(weeklyTotals));
+
+// Halloween standings count only the displayed month: every participant (zeros too), pre-sorted A-Z so the
+// leaderboard's stable sort by total keeps ties alphabetical. The same totals light the "Show all" month strip.
+const monthTotals = Object.fromEntries(participants.map(p => [p, 0]));
+Object.entries(allWeeksData).forEach(([date, day]) => {
+  if (date.startsWith(todayStr.slice(0, 7))) participants.forEach(p => { monthTotals[p] += Number(day[p]) || 0; });
+});
+const monthTop = Math.max(0, ...Object.values(monthTotals));
+const monthStandings = participants.map(name => ({ name, total_calories: monthTotals[name] })).sort((a, b) => a.name.localeCompare(b.name));
+
+// Halloween "Show all" (?view=all, so a save's reload comes back expanded): the table holds every day of the month,
+// each row posting its own Sunday-based week; rows outside the displayed week stay hidden until expanded
+const showAll = isHalloween && url.searchParams.get('view') === 'all';
+const tableDays = !isHalloween ? weekDays : getSundayWeeks().flatMap((_, w) => getWeekDates(w + 1).map((date, i) => {
+  const [y, m, d] = date.split('-').map(Number);
+  return {
+    date,
+    displayDate: new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
+    week: w + 1,
+    weekStart: i === 0,
+    cls: [date === todayStr && 'mm-today', w + 1 !== currentWeekNumber && 'mm-off'].filter(Boolean).join(' ') || undefined
+  };
+}));
 ---
 
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="icon" type="image/svg+xml" href={isHalloween ? '/favicon-halloween.svg' : '/favicon.svg'} />
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 		<meta name="generator" content={Astro.generator} />
-		<title>Burning {contestLabel}</title>
+		<title>{`${isHalloween ? '🎃 ' : ''}Burning ${contestLabel}`}</title>
 
 		<!-- Google tag (gtag.js) -->
 		<script async src="https://www.googletagmanager.com/gtag/js?id=G-4C0YRJ9CXX"></script>
@@ -156,6 +186,13 @@ participants.forEach(participant => {
 		</script>
 
 		<Analytics />
+		{isHalloween && (
+			<>
+				<link rel="preconnect" href="https://fonts.googleapis.com" />
+				<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+				<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Creepster&family=League+Gothic&family=Libre+Franklin:wght@400..800&display=swap" />
+			</>
+		)}
 		<style>
 			/* === WIN95 FONT === */
 			@font-face {
@@ -705,12 +742,930 @@ participants.forEach(participant => {
 				text-decoration: none;
 			}
 		</style>
+		{isHalloween && (
+			<style is:inline>
+				/* === HALLOWEEN (Oct 2026 only): "Midnight Matinee" - drive-in B-movie poster === */
+				/* Every selector carries :not(#_) (an ID-weight no-op) so it out-ranks Astro's scoped [data-astro-cid]
+				   rules; wherever the base declares !important, the override repeats !important. */
+				body.halloween {
+					--mm-ink: oklch(17% .014 45);
+					--mm-ink-2: oklch(23% .02 40);
+					--mm-bone: oklch(95.5% .018 85);
+					--mm-paper: oklch(91% .03 80);
+					--mm-ticket: oklch(87.5% .045 78);
+					--mm-rule: oklch(17% .014 45 / .14);
+					--mm-rule-strong: oklch(17% .014 45 / .5);
+					--mm-muted: oklch(40% .035 50);
+					--mm-on-ink: oklch(94% .02 85);
+					--mm-on-ink-muted: oklch(83% .032 80);
+					--mm-blood: oklch(43% .18 27);
+					--mm-red: oklch(64% .215 29);
+					--mm-pumpkin: oklch(72% .165 52);
+					--mm-bulb: oklch(91% .125 92);
+					--mm-board: oklch(95% .05 92);
+					--mm-today: oklch(88% .08 68);
+					--mm-hover: oklch(85% .065 75);
+					--mm-display: 'League Gothic', 'Oswald', 'Arial Narrow', Impact, sans-serif;
+					--mm-horror: 'Creepster', 'League Gothic', Impact, fantasy;
+					--mm-text: 'Libre Franklin', 'Franklin Gothic Medium', 'Helvetica Neue', sans-serif;
+					--mm-ease: cubic-bezier(.16, 1, .3, 1);
+					--mm-grain-ink: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .1 0 0 0 0 .08 0 0 0 0 .06 0 0 0 .5 -.22'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+					--mm-grain-bone: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .95 0 0 0 0 .9 0 0 0 0 .82 0 0 0 .6 -.26'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+					--gray: var(--mm-muted); /* JS-injected chat placeholders use var(--gray) */
+				}
+				body.halloween:not(#_) {
+					--mm-pad: clamp(12px, 2.6vh, 24px);
+					font-family: var(--mm-text);
+					color: var(--mm-ink);
+					line-height: 1.45;
+					padding: var(--mm-pad);
+					background:
+						radial-gradient(ellipse at 50% 45%, oklch(10% .02 40 / .1) 30%, oklch(8% .02 40 / .7) 100%) fixed,
+						url("/bg-halloween.jpg") center / cover no-repeat fixed var(--mm-ink);
+					-webkit-font-smoothing: antialiased;
+				}
+				.halloween:not(#_) ::selection { background: var(--mm-pumpkin); color: var(--mm-ink); }
+				.halloween:not(#_) :focus-visible { outline: 3px solid var(--mm-bulb); outline-offset: 2px; }
+				.halloween:not(#_) .content-wrapper :focus-visible { outline-color: var(--mm-blood); }
+
+				/* Win95 furniture off: fake window buttons, custom scrollbar, resize grip, pixel icons */
+				.halloween:not(#_) .title-controls,
+				.halloween:not(#_) .win95-scrollbar,
+				.halloween:not(#_) .resize-handle,
+				.halloween:not(#_) .btn-icon { display: none; }
+
+				/* ---------- The sheet: ink one-sheet poster (left) + bone-paper program (right) ---------- */
+				.halloween:not(#_) .window {
+					display: grid;
+					grid-template-columns: minmax(0, 1fr);
+					grid-template-areas: "title" "week" "box" "program" "status";
+					max-width: 1280px;
+					/* translucent ink: the pumpkin photo ghosts through the poster like key art (denser behind the title) */
+					background: var(--mm-grain-bone), linear-gradient(oklch(17% .014 45 / .9) 0 22%, oklch(17% .014 45 / .8) 48%);
+					border: 0;
+					box-shadow: 0 0 0 1px oklch(95% .02 85 / .12), 0 50px 100px -40px oklch(4% .02 40 / .95);
+					isolation: isolate;
+					overflow: hidden;
+					overflow: clip; /* clips the same, but isn't a scroll container that would trap the sticky month header */
+				}
+				/* halftone blood glow rising from the poster's bottom-left, like a two-colour print */
+				.halloween:not(#_) .window::before {
+					content: "";
+					position: absolute;
+					inset: 0;
+					z-index: -1;
+					pointer-events: none;
+					background: radial-gradient(circle, oklch(58% .2 30 / .55) 0 1.15px, transparent 1.7px) 0 0 / 6px 6px;
+					-webkit-mask-image: radial-gradient(110% 55% at 0% 100%, #000 0%, transparent 72%);
+					mask-image: radial-gradient(110% 55% at 0% 100%, #000 0%, transparent 72%);
+				}
+
+				/* ---------- Title treatment ---------- */
+				.halloween:not(#_) .title-bar {
+					grid-area: title;
+					display: block;
+					background: none;
+					color: var(--mm-on-ink);
+					padding: clamp(16px, 3.4vh, 36px) 28px 0;
+					container-type: inline-size;
+					user-select: auto;
+				}
+				.halloween:not(#_) .mm-title { display: flex; flex-direction: column; margin: 0; font-weight: 400; line-height: 1; }
+				.halloween:not(#_) .mm-title span { padding: 0; }
+				.halloween:not(#_) .mm-kicker {
+					font: 400 min(1.1rem, 5cqi)/1 var(--mm-display);
+					letter-spacing: .24em;
+					text-transform: uppercase;
+					color: var(--mm-on-ink-muted);
+				}
+				.halloween:not(#_) .mm-burn {
+					font-family: var(--mm-horror);
+					font-size: min(25cqi, 9.5vh);
+					line-height: .92;
+					color: var(--mm-red);
+					margin: .28em 0 0 -.03em;
+					transform: rotate(-4deg);
+					transform-origin: 0 100%;
+					text-shadow: 0 0 .06em var(--mm-ink), .045em .045em 0 oklch(30% .12 27);
+				}
+				.halloween:not(#_) .mm-month {
+					font: 400 min(calc(272cqi / var(--mm-len, 7)), 15vh)/.8 var(--mm-display);
+					text-transform: uppercase;
+					color: var(--mm-on-ink);
+					margin-top: .08em;
+				}
+				.halloween:not(#_) .mm-year {
+					display: flex;
+					align-items: center;
+					gap: 12px;
+					margin-top: clamp(4px, 1.1vh, 10px);
+					font: 400 clamp(1.2rem, 2.5vh, 1.5rem)/1 var(--mm-display);
+					letter-spacing: .38em;
+					color: var(--mm-bulb);
+				}
+				.halloween:not(#_) .mm-year::before { content: ""; flex: 1; height: 2px; background: var(--mm-bulb); opacity: .7; }
+
+				/* kicker labels ("Now showing", "Box office") share one tick motif */
+				.halloween:not(#_) .week-nav::before,
+				.halloween:not(#_) .controls-bar::before {
+					grid-column: 1 / -1;
+					padding-left: 30px;
+					background: linear-gradient(var(--mm-pumpkin), var(--mm-pumpkin)) 0 50% / 20px 2px no-repeat;
+					font: 400 1.1rem/1 var(--mm-display);
+					letter-spacing: .22em;
+					text-transform: uppercase;
+					color: var(--mm-on-ink-muted);
+				}
+
+				/* ---------- Week board: a bulb-lit drive-in marquee ---------- */
+				.halloween:not(#_) .week-nav {
+					grid-area: week;
+					display: grid;
+					grid-template-columns: 1fr 1fr;
+					gap: clamp(8px, 1.3vh, 12px) 10px;
+					container-type: inline-size;
+					background: none;
+					padding: clamp(14px, 3.2vh, 32px) 28px clamp(14px, 2.8vh, 28px);
+				}
+				.halloween:not(#_) .week-nav::before { content: "Now showing"; }
+				.halloween:not(#_) .week-label {
+					grid-column: 1 / -1;
+					grid-row: 2;
+					position: relative;
+					margin: 4px 0;
+					padding: clamp(6px, 1.1vh, 10px) 12px clamp(5px, 1vh, 9px);
+					border: 16px solid var(--mm-blood);
+					background:
+						linear-gradient(oklch(17% .014 45 / .12), oklch(17% .014 45 / .12)) 0 6px / 100% 1px no-repeat,
+						linear-gradient(oklch(17% .014 45 / .12), oklch(17% .014 45 / .12)) 0 calc(100% - 6px) / 100% 1px no-repeat,
+						var(--mm-board);
+					box-shadow: 0 0 0 1px var(--mm-ink), inset 0 0 18px oklch(80% .12 85 / .55), 0 0 44px -8px oklch(80% .15 80 / .45);
+					color: var(--mm-ink);
+					/* 56px = board border + padding; .105 keeps the longest label (a nine-letter month + " 2026 - WEEK 5") inside the bulbs */
+					font: 400 min(1.95rem, calc((100cqi - 56px) * .105))/1 var(--mm-display);
+					letter-spacing: .07em;
+					text-transform: uppercase;
+					text-align: center;
+					white-space: nowrap;
+				}
+				.halloween:not(#_) .week-label::before,
+				.halloween:not(#_) .week-label::after {
+					--b: radial-gradient(circle, oklch(99% .03 95) 0 1.6px, var(--mm-bulb) 2.6px, oklch(91% .125 92 / .3) 4px, transparent 6px);
+					content: "";
+					position: absolute;
+					inset: -16px;
+					pointer-events: none;
+					background:
+						var(--b) 0 0 / 20px 16px repeat-x,
+						var(--b) 0 100% / 20px 16px repeat-x,
+						var(--b) 0 0 / 16px 20px repeat-y,
+						var(--b) 100% 0 / 16px 20px repeat-y;
+					animation: mm-chase 1.3s linear infinite;
+				}
+				.halloween:not(#_) .week-label::after {
+					background-position: 10px 0, 10px 100%, 0 10px, 100% 10px;
+					animation-delay: -.65s;
+				}
+				@keyframes mm-chase { 0%, 49.9% { opacity: 1; } 50%, 100% { opacity: .22; } }
+				.halloween:not(#_) #prevWeek { grid-row: 3; grid-column: 1; }
+				.halloween:not(#_) #nextWeek { grid-row: 3; grid-column: 2; }
+				/* the Tracker tab (back to the current week) rides the right end of the "Now showing" kicker line */
+				.halloween:not(#_) .toolbar {
+					grid-area: week;
+					z-index: 1;
+					align-self: start;
+					justify-self: end;
+					padding: 0;
+					margin: calc(clamp(14px, 3.2vh, 32px) - 5px) 28px 0 0;
+				}
+				.halloween:not(#_) .toolbar .btn { height: 28px; padding: 0 10px; font-size: 1rem; }
+
+				/* ---------- Buttons: ghost by default ---------- */
+				.halloween:not(#_) .btn {
+					justify-content: center;
+					height: clamp(34px, 4.6vh, 40px);
+					padding: 0 14px;
+					border: 1.5px solid oklch(94% .02 85 / .55);
+					border-radius: 0;
+					box-shadow: none;
+					background: transparent;
+					color: var(--mm-on-ink);
+					font: 400 1.2rem/1 var(--mm-display);
+					letter-spacing: .12em;
+					text-transform: uppercase;
+					cursor: pointer;
+					transition: background-color .2s var(--mm-ease), color .2s var(--mm-ease), border-color .2s var(--mm-ease), transform .2s var(--mm-ease);
+				}
+				.halloween:not(#_) .btn:hover:not(:disabled) { background: var(--mm-on-ink); border-color: var(--mm-on-ink); color: var(--mm-ink); }
+				.halloween:not(#_) .btn:active { transform: translateY(1px); padding-top: 0; border-color: var(--mm-on-ink); box-shadow: none; }
+				.halloween:not(#_) .btn:disabled,
+				.halloween:not(#_) .btn:disabled:active { opacity: .55; cursor: default; text-shadow: none; transform: none; padding-top: 0; box-shadow: none; }
+
+				/* ---------- Box office (log a burn) ---------- */
+				.halloween:not(#_) .controls-bar {
+					grid-area: box;
+					display: grid;
+					grid-template-columns: minmax(0, 1fr) auto;
+					gap: 8px;
+					align-items: stretch;
+					padding: 0 28px clamp(14px, 3.2vh, 32px);
+					background: none;
+					border: 0;
+					overflow: visible;
+				}
+				.halloween:not(#_) .controls-bar::before { content: "Box office \00B7  log a burn"; margin-bottom: 4px; }
+				.halloween:not(#_) #selectedDate,
+				.halloween:not(#_) #selectedParticipant { grid-column: 1 / -1; }
+				.halloween:not(#_) .controls-bar #calorieAmount { width: auto !important; max-width: none !important; }
+
+				.halloween:not(#_) .win-input,
+				.halloween:not(#_) .win-select {
+					height: clamp(36px, 5vh, 42px);
+					min-width: 0;
+					padding: 0 12px;
+					border: 1.5px solid var(--mm-bone);
+					border-radius: 0;
+					box-shadow: none;
+					background-color: var(--mm-bone);
+					color: var(--mm-ink);
+					font: 500 1.07rem/1.2 var(--mm-text);
+					font-variant-numeric: tabular-nums;
+					color-scheme: light;
+					transition: border-color .15s var(--mm-ease);
+				}
+				.halloween:not(#_) .win-input::placeholder { color: var(--mm-muted); opacity: 1; }
+				.halloween:not(#_) .win-select {
+					-webkit-appearance: none;
+					appearance: none;
+					padding-right: 34px;
+					background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%231c1512' stroke-width='2'/%3E%3C/svg%3E");
+					background-repeat: no-repeat;
+					background-position: right 12px center;
+					cursor: pointer;
+				}
+				.halloween:not(#_) .win-input:focus-visible,
+				.halloween:not(#_) .win-select:focus-visible { outline: 3px solid var(--mm-pumpkin); outline-offset: 2px; }
+				/* the native calendar button inside the date field takes focus without a ring of its own */
+				.halloween:not(#_) input[type="date"].win-input:focus-within { outline: 3px solid var(--mm-pumpkin); outline-offset: 2px; }
+				.halloween:not(#_) .win-input::-webkit-calendar-picker-indicator { cursor: pointer; }
+				.halloween:not(#_) .content-wrapper .win-input:focus-visible,
+				.halloween:not(#_) .content-wrapper .win-select:focus-visible { outline-color: var(--mm-blood); }
+
+				/* the primary action is an admission ticket: notched ends, perforated stub */
+				.halloween:not(#_) .controls-bar .btn-fire {
+					height: clamp(36px, 5vh, 42px);
+					padding: 0 36px 0 22px;
+					border: 0;
+					background:
+						repeating-linear-gradient(var(--mm-ink) 0 3px, transparent 3px 7px) right 22px top / 1.5px 100% no-repeat,
+						var(--mm-pumpkin);
+					color: var(--mm-ink);
+					font-size: 1.4rem;
+					letter-spacing: .09em;
+					-webkit-mask: radial-gradient(circle 7px at 0 50%, #0000 96%, #000) left / 51% 100% no-repeat,
+						radial-gradient(circle 7px at 100% 50%, #0000 96%, #000) right / 51% 100% no-repeat;
+					mask: radial-gradient(circle 7px at 0 50%, #0000 96%, #000) left / 51% 100% no-repeat,
+						radial-gradient(circle 7px at 100% 50%, #0000 96%, #000) right / 51% 100% no-repeat;
+				}
+				.halloween:not(#_) .controls-bar .btn-fire:hover {
+					background:
+						repeating-linear-gradient(var(--mm-ink) 0 3px, transparent 3px 7px) right 22px top / 1.5px 100% no-repeat,
+						var(--mm-bulb);
+					color: var(--mm-ink);
+				}
+				.halloween:not(#_) .controls-bar .btn-fire:focus-visible { outline: 2px dashed var(--mm-ink); outline-offset: -6px; }
+
+				/* ---------- Billing block (status bar) ---------- */
+				.halloween:not(#_) .status-bar {
+					grid-area: status;
+					align-self: end;
+					display: block;
+					margin: 0;
+					padding: 16px 28px clamp(16px, 3vh, 26px);
+					border-top: 0;
+					box-shadow: inset 0 1px 0 oklch(94% .02 85 / .16);
+					background: var(--mm-grain-bone), var(--mm-ink); /* solid band: keeps the halftone glow out from behind the credits */
+					color: var(--mm-on-ink-muted);
+					font: 400 1.08rem/1.3 var(--mm-display);
+					letter-spacing: .08em;
+					text-transform: uppercase;
+				}
+				.halloween:not(#_) .status-field { display: inline; flex: none; padding: 0; border: 0; font-size: inherit; }
+				.halloween:not(#_) .status-field:first-child { display: block; margin-bottom: 4px; text-wrap: balance; }
+				.halloween:not(#_) .status-field:not(:first-child) { color: var(--mm-bulb); font-size: 1.3rem; letter-spacing: .1em; }
+				.halloween:not(#_) .status-field:last-child::before { content: "\2605"; margin: 0 .6em; font-size: .7em; vertical-align: .15em; color: var(--mm-pumpkin); }
+
+				/* ---------- Program: bone paper, halftone + grain ---------- */
+				.halloween:not(#_) .content-wrapper {
+					grid-area: program;
+					min-width: 0;
+					min-height: 0;
+					background:
+						var(--mm-grain-ink),
+						radial-gradient(circle, oklch(17% .014 45 / .06) 0 .9px, transparent 1.3px) 0 0 / 5px 5px,
+						var(--mm-paper);
+				}
+				.halloween:not(#_) .content { --mm-prog-top: clamp(24px, 4vh, 40px); padding: var(--mm-prog-top) clamp(20px, 3.2vw, 48px) 48px; counter-reset: reel; }
+
+				.halloween:not(#_) .group-box,
+				.halloween:not(#_) .shoutbox-window {
+					min-width: 0;
+					margin: 0 0 48px;
+					padding: 0;
+					border: 0;
+					box-shadow: none;
+					background: none;
+					counter-increment: reel;
+				}
+				.halloween:not(#_) .shoutbox-window { margin-bottom: 8px; }
+				.halloween:not(#_) .group-box legend,
+				.halloween:not(#_) .shoutbox-title {
+					float: left;
+					width: 100%;
+					position: static;
+					transform: none;
+					margin: 0 0 18px;
+					padding: 0 0 12px;
+					border-bottom: 3px solid var(--mm-ink);
+					background: linear-gradient(var(--mm-ink), var(--mm-ink)) 0 calc(100% - 4px) / 100% 1px no-repeat;
+					color: var(--mm-ink);
+					font: 400 clamp(1.9rem, 2.6vw, 2.5rem)/.95 var(--mm-display);
+					letter-spacing: .015em;
+					text-transform: uppercase;
+				}
+				.halloween:not(#_) .shoutbox-title { float: none; }
+				.halloween:not(#_) .group-box legend::before,
+				.halloween:not(#_) .shoutbox-title::before {
+					content: "Reel " counter(reel);
+					display: block;
+					margin-bottom: 8px;
+					padding-left: 28px;
+					background: linear-gradient(var(--mm-blood), var(--mm-blood)) 0 50% / 18px 2px no-repeat;
+					color: var(--mm-blood);
+					font: 700 .78rem/1 var(--mm-text);
+					letter-spacing: .24em;
+					text-transform: uppercase;
+				}
+				.halloween:not(#_) .group-box-content { clear: both; margin: 0; }
+
+				/* ---------- Tables: the drama stays in the frame, the numbers stay clean ---------- */
+				.halloween:not(#_) .win-table {
+					background: var(--mm-bone);
+					color: var(--mm-ink);
+					font-family: var(--mm-text);
+					font-size: 1.07rem;
+					font-variant-numeric: tabular-nums lining-nums;
+				}
+				.halloween:not(#_) .win-table th {
+					padding: 11px 8px 8px;
+					border: 0;
+					background: var(--mm-ink);
+					color: var(--mm-on-ink);
+					font: 400 1.35rem/1 var(--mm-display);
+					letter-spacing: .08em;
+					text-transform: uppercase;
+				}
+				/* 188px fits the longest October date plus the Tonight tag (with room for the fallback fonts before the swap) */
+				.halloween:not(#_) .win-table th:first-child { width: 188px !important; text-align: left; padding-left: 16px; }
+				.halloween:not(#_) .win-table td {
+					padding: 10px 8px;
+					border: 0;
+					border-bottom: 1px solid var(--mm-rule);
+					background: transparent;
+					color: var(--mm-ink);
+					font-weight: 500;
+				}
+				.halloween:not(#_) .win-table td + td { border-left: 1px solid var(--mm-rule); }
+				.halloween:not(#_) .win-table .date-cell {
+					width: auto;
+					padding-left: 16px;
+					background: transparent;
+					color: var(--mm-ink);
+					font-size: .84rem;
+					font-weight: 700;
+					letter-spacing: .07em;
+					text-transform: uppercase;
+				}
+				.halloween:not(#_) .win-table tbody tr:hover td,
+				.halloween:not(#_) .win-table tbody tr:hover .date-cell { background: oklch(91% .035 80); }
+
+				/* tonight's row */
+				.halloween:not(#_) .win-table .mm-today td,
+				.halloween:not(#_) .win-table .mm-today:hover td { background: var(--mm-today); font-weight: 700; }
+				.halloween:not(#_) .win-table .mm-today .date-cell { color: var(--mm-blood); box-shadow: inset 5px 0 0 var(--mm-blood); }
+				.halloween:not(#_) .win-table .mm-today .date-cell::after {
+					content: "Tonight";
+					display: inline-block;
+					margin-left: 8px;
+					padding: 3px 5px 2px;
+					background: var(--mm-blood);
+					color: var(--mm-bone);
+					font: 400 .95rem/1 var(--mm-display);
+					letter-spacing: .12em;
+					transform: rotate(-4deg);
+				}
+
+				/* editable cells: invite, then show each state distinctly */
+				.halloween:not(#_) .editable-cell { cursor: pointer; transition: background-color .15s var(--mm-ease), box-shadow .15s var(--mm-ease); }
+				.halloween:not(#_) .editable-cell .calorie-value:empty::before { content: "\2013"; color: oklch(17% .014 45 / .3); font-weight: 400; }
+				/* tonight's unlogged cells invite an entry at rest (no hover on phones); hover/error rules below still win */
+				.halloween:not(#_) .mm-today .editable-cell .calorie-value:empty::before { content: "+"; color: var(--mm-blood); font-weight: 700; }
+				.halloween:not(#_) .editable-cell:hover {
+					background: var(--mm-hover) !important;
+					outline: 0;
+					box-shadow: inset 0 0 0 2px var(--mm-ink);
+				}
+				.halloween:not(#_) .editable-cell:hover .calorie-value:empty::before { content: "+"; color: var(--mm-ink); font-weight: 700; }
+				.halloween:not(#_) .editable-cell.editing {
+					padding: 0;
+					background: var(--mm-bulb) !important;
+					box-shadow: inset 0 0 0 2px var(--mm-ink);
+				}
+				.halloween:not(#_) .editable-cell .edit-input {
+					display: block;
+					width: 100%;
+					height: 100%;
+					min-height: 42px;
+					padding: 0 6px;
+					border: 0;
+					background: transparent;
+					color: var(--mm-ink);
+					font: 700 1.07rem/1 var(--mm-text);
+					font-variant-numeric: tabular-nums;
+					text-align: center;
+					-moz-appearance: textfield;
+				}
+				.halloween:not(#_) .editable-cell .edit-input::-webkit-inner-spin-button,
+				.halloween:not(#_) .editable-cell .edit-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+				.halloween:not(#_) .editable-cell .edit-input:focus { outline: 2px solid var(--mm-blood); outline-offset: -5px; }
+				.halloween:not(#_) .editable-cell.saving,
+				.halloween:not(#_) .editable-cell.saving:hover {
+					background: repeating-linear-gradient(-45deg, var(--mm-bulb) 0 6px, var(--mm-bone) 6px 12px) !important;
+					box-shadow: inset 0 0 0 2px var(--mm-ink);
+					color: var(--mm-ink);
+					font-size: .8rem;
+					font-style: italic;
+					font-weight: 700;
+				}
+				.halloween:not(#_) .editable-cell.error,
+				.halloween:not(#_) .editable-cell.error:hover {
+					background: var(--mm-blood) !important;
+					box-shadow: inset 0 0 0 2px var(--mm-ink);
+					color: var(--mm-bone);
+					font-weight: 700;
+				}
+				.halloween:not(#_) .editable-cell.error .calorie-value:empty::before { content: "!"; color: var(--mm-bone); }
+
+				/* weekly total: a marquee strip, bulbs above and below (the ink row fills WebKit's sub-pixel seams between cells) */
+				.halloween:not(#_) .win-table .total-row { background: var(--mm-ink); }
+				.halloween:not(#_) .win-table .total-row td {
+					--b: radial-gradient(circle, oklch(99% .03 95) 0 1.3px, var(--mm-bulb) 2.2px, oklch(91% .125 92 / .25) 3.4px, transparent 5px);
+					--lit: transparent;
+					padding: 20px 8px 18px;
+					border: 0;
+					background:
+						var(--b) 0 2px / 14px 10px round no-repeat,
+						var(--b) 0 calc(100% - 2px) / 14px 10px round no-repeat,
+						linear-gradient(var(--lit), var(--lit)) 50% / calc(100% - 6px) calc(100% - 26px) no-repeat,
+						var(--mm-ink) !important;
+					color: var(--mm-bulb);
+					font-size: 1.2rem;
+					font-weight: 800;
+				}
+				/* the week's top total gets top billing: its panel lights up between the bulb rows */
+				.halloween:not(#_) .win-table .total-row td.mm-top { --lit: var(--mm-board); color: var(--mm-ink); }
+				.halloween:not(#_) .win-table .total-row .date-cell {
+					color: var(--mm-on-ink);
+					font: 400 1.4rem/1 var(--mm-display);
+					letter-spacing: .1em;
+				}
+
+				/* ---------- Show all: the week expands to the month's full program, grouped by week ---------- */
+				.halloween:not(#_) .mm-daily:not(.mm-all) :is(.mm-off, .mm-wk, .mm-month-total, .mm-when-all),
+				.halloween:not(#_) .mm-all :is(.total-row:not(.mm-month-total), .mm-when-week) { display: none; }
+				/* a program control on the heading line; the legend keeps clear of it however the heading wraps */
+				.halloween:not(#_) .mm-daily legend { padding-right: 124px; }
+				.halloween:not(#_) .mm-toggle {
+					position: absolute;
+					top: calc(.78rem + 8px); /* under the Reel kicker, level with the heading */
+					right: 0;
+					gap: 10px;
+					min-width: 118px; /* both labels, so the control doesn't resize under the cursor */
+					height: 32px;
+					padding: 0 12px 0 14px;
+					border-color: var(--mm-ink);
+					color: var(--mm-ink);
+					font-size: 1.1rem;
+				}
+				.halloween:not(#_) .mm-toggle::after {
+					content: "";
+					width: 7px;
+					height: 7px;
+					border: solid currentColor;
+					border-width: 0 2px 2px 0;
+					transform: translateY(-2px) rotate(45deg);
+				}
+				.halloween:not(#_) .mm-toggle[aria-expanded="true"]::after { transform: translateY(2px) rotate(-135deg); }
+				.halloween:not(#_) .mm-toggle:hover:not(:disabled),
+				.halloween:not(#_) .mm-toggle:active:not(:disabled) { border-color: var(--mm-ink); background: var(--mm-ink); color: var(--mm-bone); }
+				/* week dividers: the page's paper shows through between the weeks, labelled like a reel kicker */
+				.halloween:not(#_) .win-table .mm-wk th {
+					padding: 20px 16px 7px;
+					border-bottom: 2px solid var(--mm-ink);
+					background: var(--mm-paper);
+					color: var(--mm-blood);
+					font-size: 1.1rem;
+					letter-spacing: .2em;
+					text-align: left;
+				}
+				.halloween:not(#_) .win-table .mm-wk th::before {
+					content: "";
+					display: inline-block;
+					width: 18px;
+					height: 2px;
+					margin-right: 10px;
+					background: currentColor;
+					vertical-align: .3em;
+				}
+				/* 31 rows: the column heads stay pinned while the month scrolls. Sticky insets by the scroller's padding,
+				   so the layouts below cancel it with a negative top (phones scroll the page, which has none) */
+				.halloween:not(#_) .mm-all .table-scroll { overflow: visible; }
+				.halloween:not(#_) .mm-all thead th { position: sticky; top: 0; z-index: 1; }
+
+				/* ---------- Leaderboard: a stack of admission tickets ---------- */
+				.halloween:not(#_) #overallTable {
+					border-collapse: separate;
+					border-spacing: 0 8px;
+					margin-top: -8px;
+					background: transparent;
+				}
+				/* long headings ("Pizza Slices 🍕 Burned") wrap onto a second line rather than truncate in narrow columns */
+				.halloween:not(#_) #overallTable th {
+					padding: 0 12px 2px;
+					background: transparent;
+					color: var(--mm-muted);
+					font-size: 1.1rem;
+					line-height: 1.05;
+					letter-spacing: .07em;
+					white-space: normal;
+					vertical-align: bottom;
+				}
+				.halloween:not(#_) #overallTable th:first-child { width: 92px !important; text-align: center; padding-left: 0; }
+				.halloween:not(#_) #overallTable th:nth-child(2) { width: 26%; text-align: left; padding-left: 20px; }
+				.halloween:not(#_) #overallTableBody { counter-reset: rank; }
+				.halloween:not(#_) #overallTableBody tr { counter-increment: rank; }
+				.halloween:not(#_) #overallTable td {
+					--stub: var(--mm-ticket);
+					padding: 13px 12px;
+					border: 0;
+					background-color: var(--mm-ticket);
+					font-size: 1.07rem;
+					font-weight: 500;
+				}
+				.halloween:not(#_) #overallTable tbody tr:hover td { background-color: var(--mm-ticket); }
+				.halloween:not(#_) #overallTable td:nth-child(2) { padding-left: 20px; font-size: 1.14rem; }
+				.halloween:not(#_) #overallTable td:nth-child(2) {
+					background-image:
+						radial-gradient(circle at 0 0, var(--mm-paper) 6px, transparent 6.5px),
+						radial-gradient(circle at 0 100%, var(--mm-paper) 6px, transparent 6.5px);
+				}
+				.halloween:not(#_) #overallTable td:nth-child(3) { font-size: 1.22rem; font-weight: 800; }
+				.halloween:not(#_) #overallTable td:nth-child(n+4) { color: var(--mm-muted); }
+				.halloween:not(#_) #overallTable td:last-child {
+					background-image: radial-gradient(circle at 100% 50%, var(--mm-paper) 8px, transparent 8.5px);
+				}
+				/* the stub: rank numeral from a CSS counter (the medal text stays in the DOM for screen readers) */
+				.halloween:not(#_) #overallTable td:first-child {
+					position: relative;
+					padding: 0;
+					border-right: 2px dashed var(--mm-rule-strong);
+					font-size: 0 !important;
+					color: var(--mm-muted);
+					background-image:
+						radial-gradient(circle at 0 50%, var(--mm-paper) 8px, transparent 8.5px),
+						radial-gradient(circle at 100% 0, var(--mm-paper) 6px, transparent 6.5px),
+						radial-gradient(circle at 100% 100%, var(--mm-paper) 6px, transparent 6.5px) !important;
+					background-color: var(--stub) !important;
+				}
+				.halloween:not(#_) #overallTable td:first-child::before {
+					content: "No.";
+					display: block;
+					margin-bottom: 1px;
+					font: 700 .66rem/1 var(--mm-text);
+					letter-spacing: .16em;
+					text-transform: uppercase;
+				}
+				.halloween:not(#_) #overallTable td:first-child::after { content: counter(rank); font: 400 2.1rem/.9 var(--mm-display); }
+				/* td.rank-x:first-child out-ranks the plain stub rule above (which sets the muted numeral colour) */
+				.halloween:not(#_) #overallTable td.rank-gold:first-child { --stub: var(--mm-blood); color: var(--mm-bone); }
+				.halloween:not(#_) #overallTable td.rank-silver:first-child { --stub: var(--mm-pumpkin); color: var(--mm-ink); }
+				.halloween:not(#_) #overallTable td.rank-bronze:first-child { --stub: var(--mm-bulb); color: var(--mm-ink); }
+				/* the headliner gets top billing (once someone has burned something this month) */
+				.halloween:not(#_) #overallTableBody tr:first-child:not(.mm-zero) td { padding-block: 18px; }
+				.halloween:not(#_) #overallTableBody tr:first-child:not(.mm-zero) td:nth-child(2) { font: 400 1.9rem/1 var(--mm-display); letter-spacing: .05em; text-transform: uppercase; }
+				.halloween:not(#_) #overallTableBody tr:first-child:not(.mm-zero) td:first-child::after { font-size: 2.8rem; }
+				/* no burns yet this month: an unnumbered ticket */
+				.halloween:not(#_) #overallTableBody .mm-zero td:first-child::after { content: "\2013"; content: "\2013" / ""; }
+
+				/* ---------- Chart ---------- */
+				.halloween:not(#_) .chart-container {
+					margin: 0;
+					padding: 18px 14px 10px;
+					border: 0;
+					box-shadow: none;
+					background: var(--mm-bone);
+				}
+
+				/* ---------- Chat ---------- */
+				.halloween:not(#_) .shoutbox-messages {
+					max-height: 280px;
+					margin: 0 0 10px;
+					padding: 4px 18px;
+					border: 0;
+					box-shadow: none;
+					background: var(--mm-bone);
+					font-size: 1.02rem;
+					scrollbar-width: thin;
+					scrollbar-color: var(--mm-ink) transparent;
+				}
+				.halloween:not(#_) .shoutbox-messages::-webkit-scrollbar { width: 8px; }
+				.halloween:not(#_) .shoutbox-messages::-webkit-scrollbar-track { background: transparent; }
+				.halloween:not(#_) .shoutbox-messages::-webkit-scrollbar-thumb { background: var(--mm-ink); border: 0; box-shadow: none; }
+				.halloween:not(#_) .shout-msg { padding: 10px 0; border-bottom: 1px dashed var(--mm-rule-strong); }
+				.halloween:not(#_) .shout-msg:last-child { border-bottom: 0; }
+				.halloween:not(#_) .shout-time { color: var(--mm-muted); font-size: .84rem; font-variant-numeric: tabular-nums; }
+				.halloween:not(#_) .shout-user { color: var(--mm-blood); font-weight: 800; letter-spacing: .03em; }
+				.halloween:not(#_) .shout-text { margin-left: 4px; overflow-wrap: anywhere; } /* a pasted link can't push the reel sideways */
+				.halloween:not(#_) .shoutbox-form { padding: 0; gap: 8px; }
+				.halloween:not(#_) .shoutbox-form .win-input,
+				.halloween:not(#_) .shoutbox-form .win-select { border-color: var(--mm-ink); background-color: var(--mm-bone); }
+				.halloween:not(#_) .shoutbox-form .win-select { width: 140px !important; }
+				.halloween:not(#_) .shoutbox-form .btn {
+					height: clamp(36px, 5vh, 42px);
+					min-width: 104px;
+					border-color: var(--mm-ink);
+					background: var(--mm-ink);
+					color: var(--mm-on-ink);
+				}
+				.halloween:not(#_) .shoutbox-form .btn:hover:not(:disabled) { border-color: var(--mm-blood); background: var(--mm-blood); color: var(--mm-bone); }
+				/* "Sending..." reads as busy, not as faded: same stripe language as a saving cell, full-strength text */
+				.halloween:not(#_) .shoutbox-form .btn:disabled {
+					opacity: 1;
+					border-color: var(--mm-ink);
+					background: repeating-linear-gradient(-45deg, var(--mm-ink) 0 6px, var(--mm-ink-2) 6px 12px);
+					color: var(--mm-on-ink);
+					cursor: progress;
+				}
+
+				/* ---------- Desktop: poster column + scrolling program, billing block across the foot ---------- */
+				@media (min-width: 1024px) and (min-height: 700px) {
+					.halloween:not(#_) .window {
+						grid-template-columns: clamp(320px, 26vw, 360px) minmax(0, 1fr);
+						grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+						grid-template-areas: "title program" "week program" "box program" "tag program" "status status";
+						height: calc(100vh - 2 * var(--mm-pad));
+						height: calc(100dvh - 2 * var(--mm-pad));
+						max-height: none;
+					}
+					.halloween:not(#_) .status-bar {
+						display: flex;
+						align-items: baseline;
+						gap: 8px 24px;
+						margin: 0;
+						padding: 13px 28px 14px;
+						border-top: 0;
+						box-shadow: 0 -1px 0 var(--mm-ink), inset 0 1px 0 oklch(94% .02 85 / .16);
+					}
+					.halloween:not(#_) .status-field:first-child { flex: 1; margin: 0; }
+					.halloween:not(#_) .content-wrapper { overflow: hidden; box-shadow: -1px 0 0 var(--mm-ink); }
+					.halloween:not(#_) .content {
+						overflow-y: auto;
+						overscroll-behavior: contain;
+						scrollbar-width: thin;
+						scrollbar-color: var(--mm-ink) transparent;
+					}
+					.halloween:not(#_) .content::-webkit-scrollbar { display: block; width: 10px; }
+					.halloween:not(#_) .content::-webkit-scrollbar-thumb { background: var(--mm-ink); }
+					.halloween:not(#_) .mm-all thead th { top: calc(-1 * var(--mm-prog-top)); }
+				}
+
+				/* the tagline lives in the poster column's spare height (only tall screens have it);
+				   generated text is hidden from AT where the alt-text syntax is supported */
+				@media (min-width: 1024px) and (min-height: 900px) {
+					/* spare height splits evenly above the marquee and above the tagline, so no single dead band opens up */
+					.halloween:not(#_) .window {
+						grid-template-rows: auto minmax(0, 1fr) auto auto minmax(0, 1fr) minmax(0, auto) auto;
+						grid-template-areas: "title program" ". program" "week program" "box program" ". program" "tag program" "status status";
+					}
+					.halloween:not(#_) .window::after {
+						content: "Thirty-one nights.\A No mercy.";
+						content: "Thirty-one nights.\A No mercy." / "";
+						grid-area: tag;
+						align-self: end;
+						min-height: 0;
+						overflow: hidden;
+						padding: 0 28px clamp(16px, 3vh, 30px);
+						white-space: pre-line;
+						color: var(--mm-on-ink);
+						font: 400 clamp(1.7rem, 3.6vh, 2.75rem)/1 var(--mm-display);
+						letter-spacing: .04em;
+						text-transform: uppercase;
+						transform: rotate(-2deg);
+						transform-origin: 0 100%;
+						pointer-events: none;
+					}
+				}
+
+				/* ---------- Narrow / short screens: one long poster, page scrolls ---------- */
+				@media not all and (min-width: 1024px) and (min-height: 700px) {
+					body.halloween:not(#_) { display: block; height: 100%; overflow-y: auto; }
+					.halloween:not(#_) .window { max-height: none; margin: 0 auto; }
+					.halloween:not(#_) .content-wrapper,
+					.halloween:not(#_) .content { overflow: visible; }
+				}
+				/* tablets, and desktops too short for the two-column sheet: title beside the marquee, program below */
+				@media (min-width: 769px) and (max-width: 1023px), (min-width: 1024px) and (max-height: 699.98px) {
+					.halloween:not(#_) .window {
+						grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+						grid-template-areas: "title week" "box box" "program program" "status status";
+					}
+					.halloween:not(#_) .title-bar { padding-bottom: 26px; }
+					/* the marquee is shorter than the title beside it: pin the kicker line (and the Tracker tab on it) to the top */
+					.halloween:not(#_) .week-nav { align-content: space-between; }
+					.halloween:not(#_) .controls-bar { grid-template-columns: 1fr 1fr 1fr auto; }
+					.halloween:not(#_) #selectedDate,
+					.halloween:not(#_) #selectedParticipant { grid-column: auto; }
+					.halloween:not(#_) .mm-all thead th { top: calc(-1 * var(--mm-pad)); } /* the padded body scrolls here */
+				}
+
+				/* ---------- Phones ---------- */
+				@media (max-width: 768px) {
+					body.halloween:not(#_) {
+						height: auto;
+						overflow: visible;
+						padding: 0;
+						background:
+							radial-gradient(ellipse at 50% 45%, oklch(10% .02 40 / .1) 30%, oklch(8% .02 40 / .7) 100%),
+							url("/bg-halloween.jpg") center top / cover no-repeat scroll var(--mm-ink);
+					}
+					/* phones: the sheet is full-bleed, so the key art is printed into the poster header itself */
+					.halloween:not(#_) .window {
+						max-width: 100%;
+						background:
+							var(--mm-grain-bone),
+							linear-gradient(oklch(17% .014 45 / .87), oklch(17% .014 45 / .87)),
+							url("/bg-halloween.jpg") 68% 0 / auto 640px no-repeat,
+							var(--mm-ink);
+					}
+					.halloween:not(#_) .title-bar { padding: 22px 20px 0; }
+					.halloween:not(#_) .mm-kicker { font-size: .95rem; letter-spacing: .2em; }
+					.halloween:not(#_) .mm-burn { font-size: 19cqi; }
+					.halloween:not(#_) .mm-month { font-size: calc(236cqi / var(--mm-len, 7)); }
+					.halloween:not(#_) .mm-year { margin-top: 6px; font-size: 1.25rem; }
+					.halloween:not(#_) .week-nav { padding: 20px 20px 18px; gap: 10px 8px; flex-wrap: nowrap; text-align: left; }
+					.halloween:not(#_) .toolbar { margin: 15px 20px 0 0; }
+					.halloween:not(#_) .week-label { font-size: 1.55rem; width: auto; order: 0; }
+					.halloween:not(#_) .btn { width: auto; font-size: 1.1rem; }
+					.halloween:not(#_) .controls-bar {
+						grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+						flex-direction: row;
+						padding: 0 20px 22px;
+					}
+					.halloween:not(#_) #selectedDate,
+					.halloween:not(#_) #selectedParticipant { grid-column: auto; }
+					.halloween:not(#_) .controls-bar .win-input,
+					.halloween:not(#_) .controls-bar .win-select,
+					.halloween:not(#_) .controls-bar .btn { width: 100%; }
+					.halloween:not(#_) .controls-bar .btn-fire { padding: 0 32px 0 18px; font-size: 1.3rem; }
+					/* 16px keeps iOS Safari from zooming the page when a field is focused */
+					.halloween:not(#_) .win-input,
+					.halloween:not(#_) .win-select { font-size: 16px; padding: 0 10px; }
+					.halloween:not(#_) .win-select { padding-right: 30px; background-position: right 10px center; }
+
+					.halloween:not(#_) .content { padding: 26px 12px 32px; }
+					.halloween:not(#_) .group-box,
+					.halloween:not(#_) .shoutbox-window { margin-bottom: 40px; }
+					.halloween:not(#_) .shoutbox-window { margin-bottom: 8px; }
+					.halloween:not(#_) .group-box legend,
+					.halloween:not(#_) .shoutbox-title { font-size: 1.9rem; margin-bottom: 14px; padding-bottom: 10px; }
+					/* the heading needs the full width here (a fallback font would wrap it, then jump when the poster font lands),
+					   so the Show all control rides the Reel kicker line instead */
+					.halloween:not(#_) .mm-daily legend { padding-right: 0; }
+					.halloween:not(#_) .mm-toggle { top: calc(.78rem - 30px); height: 30px; }
+
+					.halloween:not(#_) .win-table { font-size: .93rem; }
+					.halloween:not(#_) .win-table th { padding: 9px 2px 7px; font-size: 1.1rem; letter-spacing: .04em; }
+					.halloween:not(#_) .win-table th:first-child { width: 86px !important; padding-left: 8px; }
+					.halloween:not(#_) .win-table td { padding: 9px 2px; font-size: .93rem; }
+					.halloween:not(#_) .win-table .date-cell { padding-left: 8px; font-size: .76rem; letter-spacing: 0; text-transform: none; }
+					/* no room beside the date on a phone: the tag hangs beneath it */
+					.halloween:not(#_) .win-table .mm-today .date-cell::after { display: block; width: max-content; margin: 4px 0 0; padding: 2px 4px 1px; font-size: .8rem; }
+					.halloween:not(#_) .editable-cell .edit-input { min-height: 38px; font-size: 16px; padding: 0 2px; }
+					.halloween:not(#_) .editable-cell.saving { font-size: .66rem; }
+					.halloween:not(#_) .win-table .total-row td { padding: 18px 2px 16px; font-size: .98rem; }
+					.halloween:not(#_) .win-table .total-row .date-cell { font-size: 1.1rem; letter-spacing: .04em; }
+
+					.halloween:not(#_) #overallTable th { padding: 0 2px 2px; font-size: .98rem; letter-spacing: .03em; }
+					.halloween:not(#_) #overallTable th:first-child { width: 58px !important; }
+					.halloween:not(#_) #overallTable th:nth-child(2) { width: 27%; padding-left: 12px; }
+					.halloween:not(#_) #overallTable td { padding: 11px 4px; font-size: .95rem; }
+					.halloween:not(#_) #overallTable td:nth-child(2) { padding-left: 12px; font-size: 1rem; }
+					.halloween:not(#_) #overallTable td:nth-child(3) { font-size: 1.02rem; }
+					.halloween:not(#_) #overallTable td:first-child { padding: 0; }
+					.halloween:not(#_) #overallTable td:first-child::before { font-size: .56rem; }
+					.halloween:not(#_) #overallTable td:first-child::after { font-size: 1.75rem; }
+					.halloween:not(#_) #overallTableBody tr:first-child:not(.mm-zero) td { padding-block: 15px; }
+					.halloween:not(#_) #overallTableBody tr:first-child:not(.mm-zero) td:nth-child(2) { font-size: 1.55rem; }
+					.halloween:not(#_) #overallTableBody tr:first-child:not(.mm-zero) td:first-child::after { font-size: 2.3rem; }
+
+					.halloween:not(#_) .chart-container { padding: 12px 6px 6px; }
+					.halloween:not(#_) .shoutbox-messages { padding: 2px 12px; }
+					.halloween:not(#_) .shoutbox-form { flex-direction: column; align-items: stretch; }
+					.halloween:not(#_) .shoutbox-form .win-select { width: 100% !important; }
+					.halloween:not(#_) .shoutbox-form .win-input { flex: none; width: 100%; }
+					.halloween:not(#_) .shoutbox-form .btn { width: 100%; }
+
+					.halloween:not(#_) .status-bar { padding: 16px 20px 26px; }
+				}
+
+				/* portrait phones: participant select and the ticket take full rows (dense flow pulls Calories up beside the date) */
+				@media (max-width: 440px) {
+					.halloween:not(#_) .controls-bar { grid-auto-flow: row dense; }
+					.halloween:not(#_) .controls-bar #selectedParticipant,
+					.halloween:not(#_) .controls-bar .btn-fire { grid-column: 1 / -1; }
+				}
+
+				@media (prefers-reduced-motion: reduce) {
+					.halloween:not(#_) .week-label::before,
+					.halloween:not(#_) .week-label::after { animation: none; }
+					.halloween:not(#_) .week-label::after { opacity: .22; }
+					.halloween:not(#_) *, .halloween:not(#_) *::before, .halloween:not(#_) *::after { transition-duration: 0s !important; }
+				}
+
+				/* === HALLOWEEN FX (bats + pumpkins, spawned by JS) === */
+				.hw-fx {
+					position: fixed;
+					inset: 0;
+					z-index: 100;
+					overflow: hidden;
+					pointer-events: none;
+					user-select: none;
+					-webkit-user-select: none;
+				}
+				.hw-pk, .hw-bat {
+					position: absolute;
+					top: 0; left: 0;
+					line-height: 1;
+					font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+					will-change: transform;
+				}
+				.hw-fx span span { display: block; }
+				.hw-pk { animation: hw-fall var(--t) linear forwards; }
+				.hw-sway { animation: hw-sway var(--st) ease-in-out infinite alternate; }
+				.hw-bat { z-index: 1; animation: hw-fly var(--t) linear forwards; }
+				.hw-bob { animation: hw-bob var(--bt) ease-in-out infinite alternate; }
+				.hw-flap { animation: hw-flap var(--ft) ease-in-out infinite alternate; }
+				@keyframes hw-fall {
+					from { transform: translate(-50%, -120%); }
+					to { transform: translate(-50%, calc(100vh + 20%)); }
+				}
+				@keyframes hw-sway {
+					from { transform: translateX(calc(var(--sw) * -1)) rotate(calc(var(--rot) * -1)); }
+					to { transform: translateX(var(--sw)) rotate(var(--rot)); }
+				}
+				@keyframes hw-fly {
+					from { transform: translate(-120%, 0); }
+					to { transform: translate(calc(100vw + 20%), var(--dy)); }
+				}
+				@keyframes hw-bob {
+					from { transform: translateY(calc(var(--bob) * -1)) rotate(-8deg); }
+					to { transform: translateY(var(--bob)) rotate(4deg); }
+				}
+				/* Apple's bat glyph faces left; mirror it so it faces its L->R flight */
+				@keyframes hw-flap {
+					from { transform: scaleX(-1); }
+					to { transform: scaleX(-1) scaleY(.6); }
+				}
+				@media (prefers-reduced-motion: reduce) {
+					.hw-fx { display: none; }
+				}
+			</style>
+		)}
 	</head>
-	<body>
+	<body class={isHalloween ? 'halloween' : undefined}>
 		<div class="window">
 			<!-- Title Bar -->
 			<div class="title-bar">
-				<span>Burning {contestLabel} - Calorie Tracker</span>
+				{isHalloween ? (
+					<h1 class="mm-title" style={`--mm-len:${contestMonth.length}`}>
+						<span class="mm-kicker">Calorie Tracker Pictures presents</span>
+						<span class="mm-burn">Burning</span>
+						<span class="mm-month">{contestMonth}</span>
+						<span class="mm-year">{contestLabel.split(' ')[1]}</span>
+					</h1>
+				) : (
+					<span>Burning {contestLabel} - Calorie Tracker</span>
+				)}
 				<div class="title-controls">
 					<button>_</button>
 					<button>&#9633;</button>
@@ -747,11 +1702,13 @@ participants.forEach(participant => {
 			<div class="content-wrapper">
 			<div class="content" id="scrollContent">
 				<!-- Weekly Table -->
-				<fieldset class="group-box">
-					<legend>Week {currentWeekNumber} - Daily Tracking</legend>
+				<fieldset class:list={['group-box', isHalloween && 'mm-daily', showAll && 'mm-all']}>
+					<legend>{isHalloween ? <><span class="mm-when-week">Week {currentWeekNumber}</span><span class="mm-when-all">{contestMonth}</span></> : <>Week {currentWeekNumber}</>} - Daily Tracking</legend>{isHalloween && (
+						<button type="button" class="btn mm-toggle" id="mmShowAll" aria-controls="mmDaily" aria-expanded={String(showAll)}>{showAll ? 'Show week' : 'Show all'}</button>
+					)}
 					<div class="group-box-content">
 						<div class="table-scroll">
-							<table class="win-table">
+							<table class="win-table" id={isHalloween ? 'mmDaily' : undefined}>
 								<thead>
 									<tr>
 										<th style="width:130px;">Date</th>
@@ -761,27 +1718,36 @@ participants.forEach(participant => {
 									</tr>
 								</thead>
 								<tbody>
-									{weekDays.map(day => (
-										<tr>
+									{tableDays.map(day => (
+										<>{day.weekStart && (
+											<tr class="mm-wk"><th colspan={participants.length + 1}>Week {day.week}</th></tr>
+										)}<tr class={day.cls}>
 											<td class="date-cell">{day.displayDate}</td>
 											{participants.map(participant => (
 												<td class="editable-cell"
 													data-participant={participant}
 													data-date={day.date}
-													data-week={currentWeekNumber}
+													data-week={day.week || currentWeekNumber}
 													title="Click to edit">
-													<span class="calorie-value">{weekData[day.date]?.[participant] || ''}</span>
+													<span class="calorie-value">{(isHalloween ? allWeeksData : weekData)[day.date]?.[participant] || ''}</span>
 												</td>
 											))}
-										</tr>
+										</tr></>
 									))}
 									<!-- Weekly Total Row -->
 									<tr class="total-row">
 										<td class="date-cell">WEEKLY TOTAL</td>
 										{participants.map(participant => (
-											<td>{weeklyTotals[participant] || 0}</td>
+											<td class={isHalloween && weekTop > 0 && weeklyTotals[participant] === weekTop ? 'mm-top' : undefined}>{weeklyTotals[participant] || 0}</td>
 										))}
-									</tr>
+									</tr>{isHalloween && (
+										<tr class="total-row mm-month-total">
+											<td class="date-cell">MONTHLY TOTAL</td>
+											{participants.map(participant => (
+												<td class={monthTop > 0 && monthTotals[participant] === monthTop ? 'mm-top' : undefined}>{monthTotals[participant]}</td>
+											))}
+										</tr>
+									)}
 								</tbody>
 							</table>
 						</div>
@@ -801,7 +1767,7 @@ participants.forEach(participant => {
 				<!-- Overall Leaderboard -->
 				{participants.length > 0 && (
 					<fieldset class="group-box">
-						<legend>Overall Calories Burned</legend>
+						<legend>{isHalloween ? `${contestMonth} Standings` : 'Overall Calories Burned'}</legend>
 						<div class="group-box-content">
 							<div class="table-scroll">
 								<table class="win-table" id="overallTable">
@@ -811,31 +1777,35 @@ participants.forEach(participant => {
 											<th>Participant</th>
 											<th><span class="hide-mobile">Total </span>Cals</th>
 											<th><span class="hide-mobile">Pizza Slices </span>🍕 Burned</th>
-											<th><span class="hide-mobile">Torta's </span>🍑 Pounded</th>
+											<th>{isHalloween ? <><span class="hide-mobile">Pumpkins </span>🔪 Carved</> : <><span class="hide-mobile">Torta's </span>🍑 Pounded</>}</th>
 										</tr>
 									</thead>
 									<tbody id="overallTableBody">
-										{participantTotals
+										{(isHalloween ? monthStandings : participantTotals)
 											.sort((a, b) => b.total_calories - a.total_calories)
 											.map((participant, index) => {
 												const rank = index + 1;
+												// Halloween: no ticket number (or medal) until you've burned something this month
+												const unranked = isHalloween && participant.total_calories === 0;
 												let rankClass = '';
 												let rankText = `#${rank}`;
 
-												if (rank === 1) { rankClass = 'rank-gold'; rankText = '🥇 #1'; }
+												if (unranked) { rankText = 'Unranked'; }
+												else if (rank === 1) { rankClass = 'rank-gold'; rankText = '🥇 #1'; }
 												else if (rank === 2) { rankClass = 'rank-silver'; rankText = '🥈 #2'; }
 												else if (rank === 3) { rankClass = 'rank-bronze'; rankText = '🥉 #3'; }
 
 												const pizzaSlices = Math.floor(participant.total_calories / 300);
 												const tortasPounded = Math.floor(participant.total_calories / 100);
+												const pumpkinsCarved = Math.floor(participant.total_calories / 150);
 
 												return (
-													<tr>
+													<tr class={unranked ? 'mm-zero' : undefined}>
 														<td class={rankClass} style="text-align:center; font-weight:700;">{rankText}</td>
 														<td style="text-align:left; font-weight:700;">{participant.name}</td>
 														<td>{participant.total_calories.toLocaleString()}</td>
 														<td>{pizzaSlices.toLocaleString()}</td>
-														<td>{tortasPounded.toLocaleString()}</td>
+														<td>{(isHalloween ? pumpkinsCarved : tortasPounded).toLocaleString()}</td>
 													</tr>
 												);
 											})}
@@ -904,7 +1874,7 @@ participants.forEach(participant => {
 		</div>
 
 		<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-		<script define:vars={{ currentWeek: currentWeekNumber, chartData: participantTotals, weekData: weekData, participants: participants, weekDays: weekDays, allWeeksData: allWeeksData, daysInMonth: daysInCurrentMonth, protectedUser: protectedUser }}>
+		<script define:vars={{ currentWeek: currentWeekNumber, chartData: participantTotals, weekData: weekData, participants: participants, weekDays: weekDays, allWeeksData: allWeeksData, daysInMonth: daysInCurrentMonth, protectedUser: protectedUser, isHalloween: isHalloween }}>
 			// currentWeek is now available from define:vars
 
 			// Initialize chart if we have data
@@ -939,7 +1909,24 @@ participants.forEach(participant => {
 					});
 				}
 
-				const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
+				// Halloween ("Midnight Matinee" poster inks): burnt orange, midnight blue, ink, blood, poison green,
+				// mustard -- all >= 3:1 on the bone chart paper; lines 4-6 are also dashed so no pair relies on hue alone
+				const colors = isHalloween
+					? ['#c4560c', '#27487c', '#231b16', '#a61c1f', '#3d7524', '#8f6c00']
+					: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
+
+				if (isHalloween) {
+					Chart.defaults.font.family = "'Libre Franklin', 'Franklin Gothic Medium', 'Helvetica Neue', sans-serif";
+					Chart.defaults.font.weight = 500;
+					Chart.defaults.color = '#4d3f35';
+					Chart.defaults.borderColor = 'rgba(28, 21, 18, 0.11)';
+					Chart.defaults.plugins.legend.labels.color = '#231b16';
+					Chart.defaults.plugins.legend.labels.boxHeight = 3;
+					Object.assign(Chart.defaults.plugins.tooltip, {
+						backgroundColor: '#1c1512', titleColor: '#f6ecd9', bodyColor: '#f6ecd9', cornerRadius: 0, padding: 10,
+						titleFont: { family: "'League Gothic', sans-serif", size: 17, weight: 400 }, displayColors: true, boxPadding: 4
+					});
+				}
 
 				const todayStr = `${chartYear}-${String(chartMonth + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
@@ -976,6 +1963,11 @@ participants.forEach(participant => {
 						spanGaps: false
 					};
 				});
+
+				if (isHalloween) {
+					const dashes = [[], [], [], [10, 5], [2, 4], [14, 4, 2, 4]];
+					datasets.forEach((ds, i) => { ds.borderDash = dashes[i % dashes.length]; });
+				}
 
 				const isMobile = window.innerWidth <= 768;
 
@@ -1059,7 +2051,8 @@ participants.forEach(participant => {
 										<td class="${rankClass}" style="text-align:center; font-weight:700;">${rankText}</td>
 										<td style="text-align:left; font-weight:700;">${escapedName}</td>
 										<td>${parseInt(participant.total_calories).toLocaleString()}</td>
-										<td>${pizzaSlices.toLocaleString()}</td>
+										<td>${pizzaSlices.toLocaleString()}</td>${isHalloween ? `
+										<td>${Math.floor(participant.total_calories / 150).toLocaleString()}</td>` : ''}
 									</tr>
 								`;
 							}).join('');
@@ -1177,6 +2170,12 @@ participants.forEach(participant => {
 
 			document.addEventListener('DOMContentLoaded', function() {
 				initChart();
+				// Halloween: canvas text can't swap fonts after the fact, so redraw once the poster fonts arrive
+				if (isHalloween && document.fonts) {
+					Promise.all(["500 12px 'Libre Franklin'", "400 17px 'League Gothic'"].map(f => document.fonts.load(f)))
+						.then(() => { if (calorieChart) calorieChart.update('none'); })
+						.catch(() => {});
+				}
 
 				const toggleButton = document.querySelector('.participant-toggle');
 				if (toggleButton) {
@@ -1542,6 +2541,87 @@ participants.forEach(participant => {
 				downBtn.addEventListener('mousedown', function(e) { e.preventDefault(); startScroll(1); });
 				window.addEventListener('mouseup', stopScroll);
 			})();
-		</script>
+		</script>{isHalloween && (
+			<>
+				<div class="hw-fx" id="hwFx" aria-hidden="true"></div>
+				<script is:inline>
+					// Halloween "Show all": expands the daily table to the whole month in place; ?view=all tells the server
+					// to render it expanded when a save reloads the page
+					(function() {
+						const btn = document.getElementById('mmShowAll');
+						btn.addEventListener('click', function() {
+							const all = btn.getAttribute('aria-expanded') !== 'true';
+							btn.closest('.group-box').classList.toggle('mm-all', all);
+							btn.setAttribute('aria-expanded', String(all));
+							btn.textContent = all ? 'Show week' : 'Show all';
+							const u = new URL(location.href);
+							if (all) u.searchParams.set('view', 'all'); else u.searchParams.delete('view');
+							history.replaceState(history.state, '', u);
+						});
+					})();
+				</script>
+				<script is:inline>
+					// Halloween FX: bats fly L->R, pumpkins rain from the whole top edge
+					(function() {
+						const fx = document.getElementById('hwFx');
+						const rm = matchMedia('(prefers-reduced-motion: reduce)');
+						const MAX_BATS = 4, MAX_NODES = 24;
+						let pkTimer, batTimer;
+						const rand = (a, b) => a + Math.random() * (b - a);
+
+						function make(cls, style, child) {
+							const el = document.createElement('span');
+							el.className = cls;
+							el.style.cssText = style;
+							if (typeof child === 'string') el.textContent = child; else el.appendChild(child);
+							return el;
+						}
+
+						function launch(el) {
+							const done = e => { if (e.target === el) el.remove(); };
+							el.addEventListener('animationend', done);
+							el.addEventListener('animationcancel', done);
+							fx.appendChild(el);
+						}
+
+						// Depth z: 0 = far (small, slow, faint), 1 = near (big, fast)
+						function pumpkin() {
+							if (document.hidden) return;
+							const z = Math.random();
+							if (fx.childElementCount < MAX_NODES) launch(make('hw-pk',
+								`left:${rand(0, 100)}%;font-size:${16 + z * 20}px;opacity:${.75 + z * .25};--t:${4 + (1 - z) * 5 + rand(0, 1)}s`,
+								make('hw-sway', `--sw:${rand(4, 16)}px;--rot:${rand(8, 24)}deg;--st:${rand(1.2, 2.6)}s`, '🎃')));
+							// Visible ~= spawn rate x mean fall (~7s): ~12 on desktop, ~5 on phones
+							const target = Math.min(12, Math.max(5, innerWidth / 120));
+							pkTimer = setTimeout(pumpkin, rand(.4, 1.6) * 7000 / target);
+						}
+
+						function bat() {
+							if (document.hidden) return;
+							const z = Math.random();
+							if (fx.getElementsByClassName('hw-bat').length < MAX_BATS && fx.childElementCount < MAX_NODES) launch(make('hw-bat',
+								`top:${rand(5, 75)}%;font-size:${18 + z * 22}px;--t:${5 + (1 - z) * 6 + rand(0, 1)}s;--dy:${rand(-40, 40)}px`,
+								make('hw-bob', `--bob:${rand(6, 18)}px;--bt:${rand(.7, 1.3)}s`,
+									make('hw-flap', `--ft:${rand(.14, .22)}s`, '🦇'))));
+							batTimer = setTimeout(bat, rand(2000, 7000));
+						}
+
+						// Fresh timers on every (re)start: nothing spawns while hidden, no backlog burst on return
+						function start() {
+							clearTimeout(pkTimer);
+							clearTimeout(batTimer);
+							if (rm.matches) { fx.textContent = ''; return; }
+							if (document.hidden) return;
+							pkTimer = setTimeout(pumpkin, rand(0, 300));
+							batTimer = setTimeout(bat, rand(1000, 3000));
+						}
+
+						document.addEventListener('visibilitychange', start);
+						rm.onchange = start;
+						start();
+					})();
+				</script>
+			</>
+		)}
 	</body>
 </html>
