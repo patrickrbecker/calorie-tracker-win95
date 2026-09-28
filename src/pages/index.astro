@@ -2385,11 +2385,13 @@ const tableDays = !isHalloween ? weekDays : getSundayWeeks().flatMap((_, w) => g
 						} else {
 							messagesContainer.innerHTML = result.data.map(msg => {
 								const date = new Date(msg.created_at);
-								const timeStr = date.toLocaleTimeString('en-US', {
-									hour: 'numeric',
-									minute: '2-digit',
-									hour12: true
-								});
+								// Date and time formatted separately so every browser shows "Sep 28, 4:16 PM" (Safari would say "Sep 28 at 4:16 PM")
+								const timeStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ', ' +
+									date.toLocaleTimeString('en-US', {
+										hour: 'numeric',
+										minute: '2-digit',
+										hour12: true
+									});
 
 								const safeUsername = document.createElement('div');
 								safeUsername.textContent = msg.username;
