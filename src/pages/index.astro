@@ -1008,6 +1008,9 @@ const tableDays = !isHalloween ? weekDays : getSundayWeeks().flatMap((_, w) => g
 				/* the native calendar button inside the date field takes focus without a ring of its own */
 				.halloween:not(#_) input[type="date"].win-input:focus-within { outline: 3px solid var(--mm-pumpkin); outline-offset: 2px; }
 				.halloween:not(#_) .win-input::-webkit-calendar-picker-indicator { cursor: pointer; }
+				/* iOS Safari draws the date field natively at a fixed minimum width, spilling into the next column; drop the native look and left-align the value like the other fields */
+				.halloween:not(#_) input[type="date"].win-input { -webkit-appearance: none; appearance: none; width: 100%; }
+				.halloween:not(#_) input[type="date"].win-input::-webkit-date-and-time-value { text-align: left; }
 				.halloween:not(#_) .content-wrapper .win-input:focus-visible,
 				.halloween:not(#_) .content-wrapper .win-select:focus-visible { outline-color: var(--mm-blood); }
 
