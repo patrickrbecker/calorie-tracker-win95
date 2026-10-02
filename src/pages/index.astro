@@ -2242,7 +2242,16 @@ const tableDays = !isHalloween ? weekDays : getSundayWeeks().flatMap((_, w) => g
 				}
 
 				loadShoutboxMessages();
-				shoutboxRefreshInterval = setInterval(loadShoutboxMessages, 10000);
+				// Poll only while the tab is visible; refresh immediately when it becomes visible again
+				function startShoutboxRefresh() {
+					clearInterval(shoutboxRefreshInterval);
+					shoutboxRefreshInterval = document.hidden ? undefined : setInterval(loadShoutboxMessages, 10000);
+				}
+				startShoutboxRefresh();
+				document.addEventListener('visibilitychange', () => {
+					if (!document.hidden) loadShoutboxMessages();
+					startShoutboxRefresh();
+				});
 
 				const sendBtn = document.getElementById('sendShoutBtn');
 				if (sendBtn) {
