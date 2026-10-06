@@ -1,13 +1,34 @@
 ---
-// Visitor stats (PROTECTED_PIN required, same PIN as the protected user): page loads logged by index.astro, names matched from chat IPs,
+// Visitor stats (STATS_PASSWORD required): page loads logged by index.astro, names matched from chat IPs,
 // network labels from Shodan (looked up once per IP and cached in ip_info)
+import { createHash, timingSafeEqual } from 'node:crypto';
 import { getVisits, getChatNamesByIp, getIpInfo, saveIpInfo } from '../lib/db.js';
 
-const url = new URL(Astro.request.url);
-const providedKey = url.searchParams.get('pin') || '';
-const pin = process.env.PROTECTED_PIN;
-const authorized = Boolean(pin) && providedKey === pin;
-if (!authorized) Astro.response.status = providedKey ? 401 : 200;
+// Auth: STATS_PASSWORD posted from the form (never in the URL); a 30-day HttpOnly cookie holds only its hash
+const COOKIE = 'burnware_stats';
+const password = process.env.STATS_PASSWORD || '';
+const token = password ? createHash('sha256').update('burnware-stats:' + password).digest('hex') : '';
+const safeEqual = (a, b) => {
+  const x = Buffer.from(String(a)), y = Buffer.from(String(b));
+  return x.length === y.length && timingSafeEqual(x, y);
+};
+let authorized = Boolean(token) && safeEqual(Astro.cookies.get(COOKIE)?.value || '', token);
+let failedLogin = false;
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData().catch(() => null);
+  if (form?.get('action') === 'logout') {
+    Astro.cookies.delete(COOKIE, { path: '/stats' });
+    authorized = false;
+  } else if (token && safeEqual(form?.get('password') || '', password)) {
+    Astro.cookies.set(COOKIE, token, { path: '/stats', httpOnly: true, secure: true, sameSite: 'strict', maxAge: 60 * 60 * 24 * 30 });
+    return Astro.redirect('/stats', 303);
+  } else {
+    failedLogin = true;
+    await new Promise(r => setTimeout(r, 1000)); // slow down guessing
+  }
+}
+if (!authorized) Astro.response.status = failedLogin ? 401 : 200;
+Astro.response.headers.set('Cache-Control', 'no-store');
 
 const TZ = 'America/New_York';
 const BOT_RE = /bot|crawl|spider|slurp|preview|facebookexternalhit|curl|wget|python|go-http|httpclient|headless|scan/i;
@@ -371,15 +392,16 @@ const fmtTime = (d) => d ? etTime(d) : '';
             <button class="btn" onclick="window.location.href='/'">Tracker</button>
             <button class="btn" onclick="window.location.href='/admin'">Admin</button>
             <button class="btn active-tab">Visitors</button>
+            {authorized && <form method="post" action="/stats" style="margin-left: auto;"><input type="hidden" name="action" value="logout" /><button class="btn" type="submit">Log out</button></form>}
         </div>
         <div class="content">
             {!authorized ? (
                 <fieldset class="group-box">
-                    <legend>PIN Required</legend>
+                    <legend>Password Required</legend>
                     <div class="group-box-content">
-                        {providedKey && <p style="color: var(--red); font-weight: 700;">That PIN is not correct.</p>}
-                        <form class="key-form" method="get" action="/stats">
-                            <input type="password" id="pin" name="pin" placeholder="PIN" inputmode="numeric" autocomplete="off" required />
+                        {failedLogin && <p style="color: var(--red); font-weight: 700;">That password is not correct.</p>}
+                        <form class="key-form" method="post" action="/stats">
+                            <input type="password" id="password" name="password" placeholder="Password" autocomplete="current-password" required />
                             <button class="btn" type="submit">Open</button>
                         </form>
                     </div>
