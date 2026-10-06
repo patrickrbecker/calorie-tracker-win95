@@ -60,43 +60,93 @@ function ensureVisitsInit() {
 }
 
 async function initVisitsDB() {
+  // One round trip; every statement is additive and idempotent
+  await sql.transaction([
+    sql`
+      CREATE TABLE IF NOT EXISTS visits (
+        id SERIAL PRIMARY KEY,
+        ip VARCHAR(45),
+        user_agent TEXT,
+        path TEXT,
+        city VARCHAR(255),
+        region VARCHAR(64),
+        country VARCHAR(8),
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `,
+    sql`CREATE INDEX IF NOT EXISTS visits_created_at_idx ON visits (created_at)`,
+    sql`
+      ALTER TABLE visits
+        ADD COLUMN IF NOT EXISTS pv_id UUID,
+        ADD COLUMN IF NOT EXISTS referrer TEXT,
+        ADD COLUMN IF NOT EXISTS language VARCHAR(64),
+        ADD COLUMN IF NOT EXISTS timezone VARCHAR(64),
+        ADD COLUMN IF NOT EXISTS postal VARCHAR(16),
+        ADD COLUMN IF NOT EXISTS latitude VARCHAR(16),
+        ADD COLUMN IF NOT EXISTS longitude VARCHAR(16),
+        ADD COLUMN IF NOT EXISTS visitor_id VARCHAR(64),
+        ADD COLUMN IF NOT EXISTS screen VARCHAR(16),
+        ADD COLUMN IF NOT EXISTS viewport VARCHAR(16),
+        ADD COLUMN IF NOT EXISTS duration_ms INTEGER,
+        ADD COLUMN IF NOT EXISTS max_scroll SMALLINT,
+        ADD COLUMN IF NOT EXISTS sections TEXT,
+        ADD COLUMN IF NOT EXISTS beacon_at TIMESTAMPTZ
+    `,
+    sql`CREATE INDEX IF NOT EXISTS visits_pv_id_idx ON visits (pv_id)`,
+    sql`
+      CREATE TABLE IF NOT EXISTS ip_info (
+        ip VARCHAR(45) PRIMARY KEY,
+        org TEXT,
+        isp TEXT,
+        tags TEXT,
+        found BOOLEAN NOT NULL,
+        fetched_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `,
+    sql`
+      ALTER TABLE ip_info
+        ADD COLUMN IF NOT EXISTS asn VARCHAR(16),
+        ADD COLUMN IF NOT EXISTS hostnames TEXT,
+        ADD COLUMN IF NOT EXISTS domains TEXT,
+        ADD COLUMN IF NOT EXISTS ports TEXT,
+        ADD COLUMN IF NOT EXISTS os TEXT,
+        ADD COLUMN IF NOT EXISTS city VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS last_scan VARCHAR(32),
+        ADD COLUMN IF NOT EXISTS schema_v SMALLINT DEFAULT 1
+    `
+  ]);
+}
+
+export async function logVisit(v) {
+  await ensureVisitsInit();
   await sql`
-    CREATE TABLE IF NOT EXISTS visits (
-      id SERIAL PRIMARY KEY,
-      ip VARCHAR(45),
-      user_agent TEXT,
-      path TEXT,
-      city VARCHAR(255),
-      region VARCHAR(64),
-      country VARCHAR(8),
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    )
-  `;
-  await sql`CREATE INDEX IF NOT EXISTS visits_created_at_idx ON visits (created_at)`;
-  await sql`
-    CREATE TABLE IF NOT EXISTS ip_info (
-      ip VARCHAR(45) PRIMARY KEY,
-      org TEXT,
-      isp TEXT,
-      tags TEXT,
-      found BOOLEAN NOT NULL,
-      fetched_at TIMESTAMPTZ DEFAULT NOW()
-    )
+    INSERT INTO visits (pv_id, ip, user_agent, path, city, region, country, referrer, language, timezone, postal, latitude, longitude)
+    VALUES (${v.pvId}, ${v.ip}, ${v.userAgent}, ${v.path}, ${v.city}, ${v.region}, ${v.country},
+      ${v.referrer}, ${v.language}, ${v.timezone}, ${v.postal}, ${v.latitude}, ${v.longitude})
   `;
 }
 
-export async function logVisit({ ip, userAgent, path, city, region, country }) {
+// Client-side engagement beacon for a page view logged within the last day
+export async function updateVisitBeacon(b) {
   await ensureVisitsInit();
   await sql`
-    INSERT INTO visits (ip, user_agent, path, city, region, country)
-    VALUES (${ip}, ${userAgent}, ${path}, ${city}, ${region}, ${country})
+    UPDATE visits SET
+      visitor_id = COALESCE(${b.visitorId}, visitor_id),
+      screen = COALESCE(${b.screen}, screen),
+      viewport = COALESCE(${b.viewport}, viewport),
+      duration_ms = GREATEST(COALESCE(duration_ms, 0), ${b.durationMs}),
+      max_scroll = GREATEST(COALESCE(max_scroll, 0), ${b.maxScroll}),
+      sections = ${b.sections},
+      beacon_at = NOW()
+    WHERE pv_id = ${b.pvId} AND created_at > NOW() - INTERVAL '1 day'
   `;
 }
 
 export async function getVisits(sinceDays) {
   await ensureVisitsInit();
   return await sql`
-    SELECT ip, user_agent, path, city, region, country, created_at
+    SELECT ip, user_agent, path, city, region, country, referrer, language, timezone, postal, latitude, longitude,
+      visitor_id, screen, viewport, duration_ms, max_scroll, sections, created_at
     FROM visits WHERE created_at >= NOW() - make_interval(days => ${sinceDays})
     ORDER BY created_at DESC
   `;
@@ -113,15 +163,18 @@ export async function getChatNamesByIp() {
 
 export async function getIpInfo() {
   await ensureVisitsInit();
-  return await sql`SELECT ip, org, isp, tags, found FROM ip_info`;
+  return await sql`SELECT ip, org, isp, tags, found, asn, hostnames, domains, ports, os, city, last_scan, schema_v FROM ip_info`;
 }
 
-export async function saveIpInfo({ ip, org, isp, tags, found }) {
+export async function saveIpInfo(r) {
   await ensureVisitsInit();
   await sql`
-    INSERT INTO ip_info (ip, org, isp, tags, found) VALUES (${ip}, ${org}, ${isp}, ${tags}, ${found})
-    ON CONFLICT (ip) DO UPDATE SET org = EXCLUDED.org, isp = EXCLUDED.isp, tags = EXCLUDED.tags,
-      found = EXCLUDED.found, fetched_at = NOW()
+    INSERT INTO ip_info (ip, org, isp, tags, found, asn, hostnames, domains, ports, os, city, last_scan, schema_v)
+    VALUES (${r.ip}, ${r.org}, ${r.isp}, ${r.tags}, ${r.found}, ${r.asn}, ${r.hostnames}, ${r.domains}, ${r.ports},
+      ${r.os}, ${r.city}, ${r.lastScan}, 2)
+    ON CONFLICT (ip) DO UPDATE SET org = EXCLUDED.org, isp = EXCLUDED.isp, tags = EXCLUDED.tags, found = EXCLUDED.found,
+      asn = EXCLUDED.asn, hostnames = EXCLUDED.hostnames, domains = EXCLUDED.domains, ports = EXCLUDED.ports,
+      os = EXCLUDED.os, city = EXCLUDED.city, last_scan = EXCLUDED.last_scan, schema_v = 2, fetched_at = NOW()
   `;
 }
 
