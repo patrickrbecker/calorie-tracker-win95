@@ -93,6 +93,7 @@ async function initVisitsDB() {
         ADD COLUMN IF NOT EXISTS beacon_at TIMESTAMPTZ
     `,
     sql`CREATE INDEX IF NOT EXISTS visits_pv_id_idx ON visits (pv_id)`,
+    sql`CREATE INDEX IF NOT EXISTS visits_ip_created_idx ON visits (ip, created_at)`,
     sql`
       CREATE TABLE IF NOT EXISTS ip_info (
         ip VARCHAR(45) PRIMARY KEY,
@@ -117,12 +118,14 @@ async function initVisitsDB() {
   ]);
 }
 
+// At most 30 logged loads per IP per 10 minutes, so scripted reloads can't fill the database
 export async function logVisit(v) {
   await ensureVisitsInit();
   await sql`
     INSERT INTO visits (pv_id, ip, user_agent, path, city, region, country, referrer, language, timezone, postal, latitude, longitude)
-    VALUES (${v.pvId}, ${v.ip}, ${v.userAgent}, ${v.path}, ${v.city}, ${v.region}, ${v.country},
-      ${v.referrer}, ${v.language}, ${v.timezone}, ${v.postal}, ${v.latitude}, ${v.longitude})
+    SELECT ${v.pvId}, ${v.ip}, ${v.userAgent}, ${v.path}, ${v.city}, ${v.region}, ${v.country},
+      ${v.referrer}, ${v.language}, ${v.timezone}, ${v.postal}, ${v.latitude}, ${v.longitude}
+    WHERE (SELECT count(*) FROM visits WHERE ip = ${v.ip} AND created_at > NOW() - INTERVAL '10 minutes') < 30
   `;
 }
 

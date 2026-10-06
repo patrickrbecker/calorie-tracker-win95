@@ -66,7 +66,7 @@ export async function POST({ request }) {
     return new Response(JSON.stringify({
       success: true,
       message: 'Shout added successfully',
-      data: result
+      data: (({ ip, ...msg }) => msg)(result)
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }

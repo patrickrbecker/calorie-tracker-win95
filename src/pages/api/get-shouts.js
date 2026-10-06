@@ -17,7 +17,8 @@ export async function GET({ url }) {
 
     return new Response(JSON.stringify({
       success: true,
-      data: messages,
+      // Poster IPs stay server-side (used only by /stats)
+      data: messages.map(({ ip, ...msg }) => msg),
       count: messages.length
     }), {
       status: 200,
