@@ -50,6 +50,81 @@ export async function initDB() {
   await sql`ALTER TABLE shoutbox ADD COLUMN IF NOT EXISTS ip VARCHAR(45)`;
 }
 
+// Visit telemetry: one row per main-page load (not reset by clearAllContestData).
+// Separate init so a failure here can never affect the contest tables above.
+let _visitsInitPromise;
+
+function ensureVisitsInit() {
+  if (!_visitsInitPromise) _visitsInitPromise = initVisitsDB().catch(err => { _visitsInitPromise = undefined; throw err; });
+  return _visitsInitPromise;
+}
+
+async function initVisitsDB() {
+  await sql`
+    CREATE TABLE IF NOT EXISTS visits (
+      id SERIAL PRIMARY KEY,
+      ip VARCHAR(45),
+      user_agent TEXT,
+      path TEXT,
+      city VARCHAR(255),
+      region VARCHAR(64),
+      country VARCHAR(8),
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS visits_created_at_idx ON visits (created_at)`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS ip_info (
+      ip VARCHAR(45) PRIMARY KEY,
+      org TEXT,
+      isp TEXT,
+      tags TEXT,
+      found BOOLEAN NOT NULL,
+      fetched_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+}
+
+export async function logVisit({ ip, userAgent, path, city, region, country }) {
+  await ensureVisitsInit();
+  await sql`
+    INSERT INTO visits (ip, user_agent, path, city, region, country)
+    VALUES (${ip}, ${userAgent}, ${path}, ${city}, ${region}, ${country})
+  `;
+}
+
+export async function getVisits(sinceDays) {
+  await ensureVisitsInit();
+  return await sql`
+    SELECT ip, user_agent, path, city, region, country, created_at
+    FROM visits WHERE created_at >= NOW() - make_interval(days => ${sinceDays})
+    ORDER BY created_at DESC
+  `;
+}
+
+export async function getChatNamesByIp() {
+  await ensureInit();
+  // Most recent chat name used from each IP
+  return await sql`
+    SELECT DISTINCT ON (ip) ip, username FROM shoutbox
+    WHERE ip IS NOT NULL AND ip <> 'unknown' ORDER BY ip, created_at DESC
+  `;
+}
+
+export async function getIpInfo() {
+  await ensureVisitsInit();
+  return await sql`SELECT ip, org, isp, tags, found FROM ip_info`;
+}
+
+export async function saveIpInfo({ ip, org, isp, tags, found }) {
+  await ensureVisitsInit();
+  await sql`
+    INSERT INTO ip_info (ip, org, isp, tags, found) VALUES (${ip}, ${org}, ${isp}, ${tags}, ${found})
+    ON CONFLICT (ip) DO UPDATE SET org = EXCLUDED.org, isp = EXCLUDED.isp, tags = EXCLUDED.tags,
+      found = EXCLUDED.found, fetched_at = NOW()
+  `;
+}
+
 export async function addParticipant(name) {
   await ensureInit();
   const existing = await sql`SELECT name FROM participants WHERE name = ${name}`;
