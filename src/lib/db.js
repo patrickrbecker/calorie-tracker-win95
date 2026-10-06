@@ -174,10 +174,10 @@ export async function saveIpInfo(r) {
   await sql`
     INSERT INTO ip_info (ip, org, isp, tags, found, asn, hostnames, domains, ports, os, city, last_scan, schema_v)
     VALUES (${r.ip}, ${r.org}, ${r.isp}, ${r.tags}, ${r.found}, ${r.asn}, ${r.hostnames}, ${r.domains}, ${r.ports},
-      ${r.os}, ${r.city}, ${r.lastScan}, 2)
+      ${r.os}, ${r.city}, ${r.lastScan}, 3)
     ON CONFLICT (ip) DO UPDATE SET org = EXCLUDED.org, isp = EXCLUDED.isp, tags = EXCLUDED.tags, found = EXCLUDED.found,
       asn = EXCLUDED.asn, hostnames = EXCLUDED.hostnames, domains = EXCLUDED.domains, ports = EXCLUDED.ports,
-      os = EXCLUDED.os, city = EXCLUDED.city, last_scan = EXCLUDED.last_scan, schema_v = 2, fetched_at = NOW()
+      os = EXCLUDED.os, city = EXCLUDED.city, last_scan = EXCLUDED.last_scan, schema_v = 3, fetched_at = NOW()
   `;
 }
 

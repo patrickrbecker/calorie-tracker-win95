@@ -54,7 +54,7 @@ async function shodanLookup(ip, key) {
   const list = (a, n = 12) => (Array.isArray(a) && a.length ? a.slice(0, n).join(', ') : null);
   try {
     const res = await fetch(`https://api.shodan.io/shodan/host/${encodeURIComponent(ip)}?key=${key}&minify=true`, { signal: ctrl.signal });
-    if (res.status === 404) return { ip, found: false, org: null, isp: null, tags: null, asn: null, hostnames: null, domains: null, ports: null, os: null, city: null, lastScan: null };
+    if (res.status === 404) return { ip, found: false, tags: null, domains: null, ports: null, os: null, lastScan: null, ...(await ownerLookup(ip)) };
     if (!res.ok) return null; // rate limit or outage: try again on a later load
     const d = await res.json();
     return {
@@ -69,6 +69,29 @@ async function shodanLookup(ip, key) {
     clearTimeout(timer);
   }
 }
+
+// Network owner for IPs Shodan has never scanned (free ipinfo.io endpoint, no key)
+async function ownerLookup(ip) {
+  const empty = { org: null, isp: null, asn: null, hostnames: null, city: null };
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 2500);
+  try {
+    const res = await fetch(`https://ipinfo.io/${encodeURIComponent(ip)}/json`, { signal: ctrl.signal, headers: { accept: 'application/json' } });
+    if (!res.ok) return empty;
+    const d = await res.json();
+    const m = /^(AS\d+)\s+(.*)$/.exec(d.org || '');
+    return { org: m ? m[2] : d.org || null, isp: null, asn: m ? m[1] : null, hostnames: d.hostname || null,
+      city: [d.city, d.region].filter(Boolean).join(', ') || null };
+  } catch {
+    return empty;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// Cloud and hosting networks: visits from them are scanners, not people. Akamai, Cloudflare and Fastly are
+// left out on purpose: iCloud Private Relay sends real iPhone users through them.
+const CLOUD_RE = /amazon|\baws\b|google(?! fiber)|microsoft|azure|digitalocean|linode|ovh|hetzner|oracle|alibaba|tencent|vultr|choopa|contabo|scaleway|leaseweb|m247|datacamp|hostinger|ionos|upcloud|kamatera|hostwinds|psychz|quadranet|colocrossing/i;
 
 const fmtDuration = (ms) => {
   if (!ms) return '';
@@ -89,21 +112,31 @@ if (authorized) {
     const chatName = new Map(chatRows.map(r => [r.ip, r.username]));
     const info = new Map(infoRows.map(r => [r.ip, r]));
 
-    const humans = visits.filter(v => !BOT_RE.test(v.user_agent || ''));
-    bots = visits.filter(v => BOT_RE.test(v.user_agent || ''));
+    const notBots = visits.filter(v => !BOT_RE.test(v.user_agent || ''));
     since = visits.length ? new Date(visits[visits.length - 1].created_at) : null;
 
-    // Shodan: look up new IPs (and refresh pre-v2 cache rows), at most 3 per page load (~1 request/second)
+    // Look up new IPs (and refresh pre-v3 cache rows), at most 3 per page load (Shodan allows ~1 request/second)
     const shodanKey = process.env.SHODAN_API_KEY;
-    const missing = [...new Set(humans.map(v => v.ip))].filter(ip => isLookupable(ip) && !(info.get(ip)?.schema_v >= 2));
+    const missing = [...new Set(notBots.map(v => v.ip))].filter(ip => isLookupable(ip) && !(info.get(ip)?.schema_v >= 3));
     if (shodanKey) {
       for (const ip of missing.slice(0, 3)) {
         const r = await shodanLookup(ip, shodanKey);
-        if (r) { await saveIpInfo(r).catch(() => {}); info.set(ip, { ...r, last_scan: r.lastScan, schema_v: 2 }); }
+        if (r) { await saveIpInfo(r).catch(() => {}); info.set(ip, { ...r, last_scan: r.lastScan, schema_v: 3 }); }
         await new Promise(res => setTimeout(res, 1100));
       }
     }
-    pending = missing.filter(ip => !(info.get(ip)?.schema_v >= 2)).length;
+    pending = missing.filter(ip => !(info.get(ip)?.schema_v >= 3)).length;
+
+    const cloudOwner = (ip) => {
+      const i = info.get(ip);
+      if (!i) return null;
+      const owner = i.org || i.isp || '';
+      return CLOUD_RE.test(owner) || /(^|, )cloud(,|$)/.test(i.tags || '') ? (owner || 'cloud network') : null;
+    };
+    const humans = notBots.filter(v => !cloudOwner(v.ip));
+    bots = visits.filter(v => BOT_RE.test(v.user_agent || '') || cloudOwner(v.ip)).map(v => ({
+      ...v, reason: BOT_RE.test(v.user_agent || '') ? 'bot user agent' : 'cloud network', owner: cloudOwner(v.ip) || (info.get(v.ip)?.org || '')
+    }));
 
     // Name each visit: chat name for its IP, else the name tied to its browser ID on another visit
     const vidName = new Map();
@@ -140,9 +173,9 @@ if (authorized) {
         const i = info.get(v.ip);
         g.ips.set(v.ip, {
           ip: v.ip, place: place(v), zip: v.postal, coords: v.latitude && v.longitude ? `${v.latitude}, ${v.longitude}` : '',
-          network: i?.found ? [i.org || i.isp, i.asn].filter(Boolean).join(' ') : '', tags: i?.tags || '',
+          network: [i?.org || i?.isp, i?.asn].filter(Boolean).join(' '), tags: i?.tags || '',
           hostnames: i?.hostnames || '', domains: i?.domains || '', ports: i?.ports || '', os: i?.os || '',
-          lastScan: i?.last_scan || '', looked: i?.schema_v >= 2, found: Boolean(i?.found)
+          lastScan: i?.last_scan || '', looked: i?.schema_v >= 3, found: Boolean(i?.found)
         });
       }
       if (chatName.get(v.ip)) g.byChat = true;
@@ -180,7 +213,7 @@ if (authorized) {
       from: refHost(v.referrer), onPage: fmtDuration(v.duration_ms), scroll: v.max_scroll != null ? v.max_scroll + '%' : '',
       sections: (v.sections || '').replace(/,/g, ', '), path: v.path
     }));
-    bots = bots.slice(0, 20).map(v => ({ time: etTime(new Date(v.created_at)), ip: v.ip, ua: (v.user_agent || '').slice(0, 90) }));
+    bots = bots.slice(0, 40).map(v => ({ time: etTime(new Date(v.created_at)), ip: v.ip, owner: v.owner, reason: v.reason, place: place(v), ua: (v.user_agent || '').slice(0, 90) }));
   } catch (e) {
     console.error('Stats error:', e);
     error = 'Could not load visitor data. Check the server logs.';
@@ -474,7 +507,7 @@ const fmtTime = (d) => d ? etTime(d) : '';
                                 <div class="stat"><small>Last 7 days</small><b>{summary.weekVisitors}</b><small>{summary.weekLoads} page loads</small></div>
                                 <div class="stat"><small>Since logging began</small><b>{summary.allVisitors}</b><small>{summary.allLoads} page loads</small></div>
                             </div>
-                            <p class="muted" style="margin-top: 6px;">Visitors = people: chat name, else browser ID, else IP. Logging began {since ? fmtTime(since) : 'with the next visit'} ET. Bots and scripts are excluded.{pending > 0 && ` ${pending} IPs still waiting on a network lookup; reload to continue.`}</p>
+                            <p class="muted" style="margin-top: 6px;">Visitors = people: chat name, else browser ID, else IP. Logging began {since ? fmtTime(since) : 'with the next visit'} ET. Bots, scanners and cloud-hosted visits are excluded and listed at the bottom.{pending > 0 && ` ${pending} IPs still waiting on a network lookup; reload to continue.`}</p>
                         </div>
                     </fieldset>
 
@@ -508,7 +541,7 @@ const fmtTime = (d) => d ? etTime(d) : '';
                                             {p.ips.map(i => (
                                                 <tr>
                                                     <td>{i.ip}</td><td>{i.place}</td><td>{i.zip}</td><td>{i.coords}</td>
-                                                    <td>{i.network || (i.looked ? <span class="muted">no Shodan record</span> : <span class="muted">pending</span>)}</td>
+                                                    <td>{i.network}{i.looked && !i.found && <span class="muted">{i.network ? ' (no Shodan record)' : 'no Shodan record'}</span>}{!i.looked && <span class="muted">pending</span>}</td>
                                                     <td>{i.tags}</td>
                                                     <td class="wrap">{[i.hostnames, i.domains].filter(Boolean).join(' · ')}</td>
                                                     <td class="wrap">{i.ports}</td><td>{i.os}</td><td>{i.lastScan}</td>
@@ -551,11 +584,11 @@ const fmtTime = (d) => d ? etTime(d) : '';
 
                     {bots.length > 0 && (
                         <fieldset class="group-box">
-                            <legend>Bots and Scripts</legend>
+                            <legend>Bots, Scanners and Cloud</legend>
                             <div class="group-box-content">
                                 <div class="table-wrap"><table>
-                                    <thead><tr><th>Time (ET)</th><th>IP</th><th>User agent</th></tr></thead>
-                                    <tbody>{bots.map(b => <tr><td>{b.time}</td><td>{b.ip}</td><td>{b.ua}</td></tr>)}</tbody>
+                                    <thead><tr><th>Time (ET)</th><th>IP</th><th>Network</th><th>Location</th><th>Why</th><th>User agent</th></tr></thead>
+                                    <tbody>{bots.map(b => <tr><td>{b.time}</td><td>{b.ip}</td><td>{b.owner}</td><td>{b.place}</td><td>{b.reason}</td><td>{b.ua}</td></tr>)}</tbody>
                                 </table></div>
                             </div>
                         </fieldset>
