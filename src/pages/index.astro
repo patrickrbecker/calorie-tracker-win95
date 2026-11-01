@@ -27,6 +27,10 @@ const visitLogged = logVisit({
   longitude: decodeHeader('x-vercel-ip-longitude')?.slice(0, 16) || null
 }).catch(err => console.error('Visit log failed:', err.message));
 
+// October review hold: from Nov 1 the page stays on its last October day so everyone can review the month.
+// Remove REVIEW_HOLD_DATE to let the page roll forward to the real date.
+const REVIEW_HOLD_DATE = '2026-10-31';
+
 let participants = [];
 let weekData = {};
 let participantTotals = [];
@@ -59,10 +63,6 @@ try {
 
 // Let the visit insert finish before the function returns, but never hold the page more than 1.5s for it
 await Promise.race([visitLogged, new Promise(resolve => setTimeout(resolve, 1500))]);
-
-// October review hold: from Nov 1 the page stays on its last October day so everyone can review the month.
-// Remove REVIEW_HOLD_DATE to let the page roll forward to the real date.
-const REVIEW_HOLD_DATE = '2026-10-31';
 
 // Function to get current date in Eastern Time as YYYY-MM-DD string
 function getCurrentDateInEasternTime() {
