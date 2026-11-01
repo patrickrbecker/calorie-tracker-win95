@@ -60,11 +60,15 @@ try {
 // Let the visit insert finish before the function returns, but never hold the page more than 1.5s for it
 await Promise.race([visitLogged, new Promise(resolve => setTimeout(resolve, 1500))]);
 
+// October review hold: from Nov 1 the page stays on its last October day so everyone can review the month.
+// Remove REVIEW_HOLD_DATE to let the page roll forward to the real date.
+const REVIEW_HOLD_DATE = '2026-10-31';
+
 // Function to get current date in Eastern Time as YYYY-MM-DD string
 function getCurrentDateInEasternTime() {
   const now = new Date();
   const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
-  return parts;
+  return REVIEW_HOLD_DATE && parts > REVIEW_HOLD_DATE ? REVIEW_HOLD_DATE : parts;
 }
 
 // Weeks start on Sunday. Compute Sunday-based week boundaries for the current month.
@@ -1904,7 +1908,7 @@ const tableDays = !isHalloween ? weekDays : getSundayWeeks().flatMap((_, w) => g
 		</div>
 
 		<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-		<script define:vars={{ currentWeek: currentWeekNumber, chartData: participantTotals, weekData: weekData, participants: participants, weekDays: weekDays, allWeeksData: allWeeksData, daysInMonth: daysInCurrentMonth, protectedUser: protectedUser, isHalloween: isHalloween }}>
+		<script define:vars={{ currentWeek: currentWeekNumber, chartData: participantTotals, weekData: weekData, participants: participants, weekDays: weekDays, allWeeksData: allWeeksData, daysInMonth: daysInCurrentMonth, protectedUser: protectedUser, isHalloween: isHalloween, pageToday: todayStr }}>
 			// currentWeek is now available from define:vars
 
 			// Initialize chart if we have data
@@ -1921,8 +1925,8 @@ const tableDays = !isHalloween ? weekDays : getSundayWeeks().flatMap((_, w) => g
 					calorieChart.destroy();
 				}
 
-				// Generate dates for entire current month
-				const today = new Date();
+				// Generate dates for entire current month (the server's date, which honors the review hold)
+				const today = new Date(pageToday + 'T12:00:00');
 				const chartYear = today.getFullYear();
 				const chartMonth = today.getMonth();
 				const maxDay = daysInMonth;
@@ -2251,11 +2255,7 @@ const tableDays = !isHalloween ? weekDays : getSundayWeeks().flatMap((_, w) => g
 
 				const dateInput = document.getElementById('selectedDate');
 				if (dateInput && !dateInput.value) {
-					const now = new Date();
-					const y = now.getFullYear();
-					const m = String(now.getMonth() + 1).padStart(2, '0');
-					const d = String(now.getDate()).padStart(2, '0');
-					dateInput.value = `${y}-${m}-${d}`;
+					dateInput.value = pageToday;
 				}
 				if (dateInput) {
 					dateInput.addEventListener('change', async function(e) {
